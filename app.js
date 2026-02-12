@@ -1452,11 +1452,40 @@ const LS_CUR = "songrider_TEST_currentProjectId";
       el.autoSplitBtn.textContent = "AutoSplit: " + (state.autoSplit ? "ON" : "OFF");
     });
 
-    el.bpmInput.addEventListener("input", () => {
-      state.bpm = clamp(parseInt(el.bpmInput.value || "95",10) || 95, 40, 220);
-      el.bpmInput.value = String(state.bpm);
-      if(state.drumsOn) startDrums();
-    });
+    function commitBpm(){
+  let n = parseInt(el.bpmInput.value, 10);
+  if(!Number.isFinite(n)) n = state.bpm || 95;
+  n = clamp(n, 40, 220);
+
+  state.bpm = n;
+  el.bpmInput.value = String(n);
+
+  // ✅ persist to project
+  if(state.project){
+    state.project.bpm = n;
+    upsertProject(state.project);
+  }
+
+  if(state.drumsOn) startDrums();
+}
+
+el.bpmInput.addEventListener("input", () => {
+  const raw = el.bpmInput.value;
+
+  // allow user to type (including empty)
+  if(raw === "") return;
+
+  // if it's a valid number in range, preview it immediately (for drums)
+  const n = parseInt(raw, 10);
+  if(Number.isFinite(n) && n >= 40 && n <= 220){
+    state.bpm = n;
+    if(state.drumsOn) startDrums();
+  }
+});
+
+// clamp only when user finishes
+el.bpmInput.addEventListener("change", commitBpm);
+el.bpmInput.addEventListener("blur", commitBpm);
 
     el.capoInput.addEventListener("input", () => {
       state.capo = clamp(parseInt(el.capoInput.value || "0",10) || 0, 0, 12);
