@@ -134,8 +134,8 @@
   /***********************
    * Project storage (version bump)
    ***********************/
-  const LS_KEY = "songrider_v25_projects";
-  const LS_CUR = "songrider_v25_currentProjectId";
+const LS_KEY = "songrider_TEST_projects";
+const LS_CUR = "songrider_TEST_currentProjectId";
 
   function newLine(){
     return {
@@ -234,7 +234,7 @@
   /***********************
    * IndexedDB (Recordings) version bump
    ***********************/
-  const DB_NAME = "songrider_db_v25";
+  const DB_NAME = "songrider_db_TEST";
   const DB_VER = 1;
   const STORE = "recordings";
 
