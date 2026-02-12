@@ -1,4 +1,4 @@
-/* app.js (FULL REPLACE v26) */
+/* app.js (FULL REPLACE v27) */
 (() => {
   "use strict";
 
@@ -412,6 +412,40 @@
   }
 
   /***********************
+   * NOTE / ACCIDENTAL PARSER (FIXED)
+   * Accepts: Bb, bb, B♭, C#, C♯, Db, D♭, etc.
+   * Also tolerates extra junk after the note (ex: "Bbmaj7" -> "Bb")
+   ***********************/
+  function parseNoteToken(v){
+    const s0 = String(v||"").trim();
+    if(!s0) return null;
+
+    // normalize unicode accidentals to ASCII
+    const s = s0
+      .replace(/♯/g, "#")
+      .replace(/♭/g, "b")
+      .trim();
+
+    // match leading note + optional accidental, ignore the rest
+    const m = s.match(/^([A-Ga-g])\s*([#b])?/);
+    if(!m) return null;
+
+    const letter = m[1].toUpperCase();
+    const acc = (m[2] || "").toLowerCase(); // "#" or "b" or ""
+
+    // canonical key for maps:
+    // flats as "DB" etc to match your existing mapping style
+    const key =
+      acc === "#"
+        ? (letter + "#")
+        : acc === "b"
+          ? (letter + "B")
+          : letter;
+
+    return { key, letter, acc }; // key used for maps, acc is "#" or "b" or ""
+  }
+
+  /***********************
    * NOTE PARSER for blue boxes
    ***********************/
   const NOTE_TO_FREQ = {
@@ -425,18 +459,13 @@
   };
 
   function noteCellToFreq(v){
-    const s = String(v||"").trim().toUpperCase();
-    if(!s) return null;
-    const m = s.match(/^([A-G])([#B])?$/);
-    if(!m) return null;
-    const root = m[1];
-    const acc = (m[2]||"");
-    const key = root + (acc === "B" ? "B" : acc === "#" ? "#" : "");
-    return NOTE_TO_FREQ[key] ?? null;
+    const p = parseNoteToken(v);
+    if(!p) return null;
+    return NOTE_TO_FREQ[p.key] ?? null;
   }
 
   /***********************
-   * Transpose display (FIX: ensure function exists)
+   * Transpose display
    ***********************/
   const NOTE_TO_PC = {
     "C":0,"C#":1,"DB":1,"D":2,"D#":3,"EB":3,"E":4,"F":5,"F#":6,"GB":6,"G":7,"G#":8,"AB":8,"A":9,"A#":10,"BB":10,"B":11
@@ -444,21 +473,16 @@
   const PC_TO_NAME = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
   function noteToPC(n){
-    const s = String(n||"").trim().toUpperCase();
-    if(!s) return null;
-    const m = s.match(/^([A-G])([#B])?$/);
-    if(!m) return null;
-    const root = m[1];
-    const acc = (m[2] || "").toUpperCase();
-    const key = root + (acc === "B" ? "B" : acc === "#" ? "#" : "");
-    return NOTE_TO_PC[key] ?? null;
+    const p = parseNoteToken(n);
+    if(!p) return null;
+    return NOTE_TO_PC[p.key] ?? null;
   }
 
   function transposeNoteName(note, semitones){
     const pc = noteToPC(note);
     if(pc === null) return String(note||"").trim();
     const t = ((pc + (semitones|0)) % 12 + 12) % 12;
-    return PC_TO_NAME[t];
+    return PC_TO_NAME[t]; // display uses sharps (clean + consistent)
   }
 
   function instWave(){
@@ -468,7 +492,7 @@
   }
 
   /***********************
-   * Capo refresh helper (FIX)
+   * Capo refresh helper
    ***********************/
   function refreshDisplayedNoteCells(){
     const root = el.sheetBody;
@@ -520,7 +544,7 @@
   }
 
   /***********************
-   * Instrument playback (FIX: no double-transpose)
+   * Instrument playback (no double-transpose)
    ***********************/
   function playInstrumentStep(){
     if(!state.instrumentOn) return;
@@ -533,7 +557,7 @@
     const cells = card.querySelectorAll(".noteCell");
     if(!cells[nIdx]) return;
 
-    // ✅ use RAW note (not the transposed display)
+    // use RAW note, apply capo once
     const rawNote = String(cells[nIdx].dataset.raw || cells[nIdx].value || "").trim();
     const freq = noteCellToFreq(rawNote);
     if(!freq) return;
@@ -830,11 +854,15 @@
   }
 
   /***********************
-   * Full preview
+   * Full preview (FIX: show transposed notes)
    ***********************/
-  function compactNotesLine(notesArr){
+  function compactNotesLine(notesArr, semis=0){
     const notes = Array.isArray(notesArr) ? notesArr : Array(8).fill("");
-    return notes.map(n => (String(n||"").trim() || "—")).join(" ");
+    return notes.map(n => {
+      const raw = String(n||"").trim();
+      if(!raw) return "—";
+      return semis ? transposeNoteName(raw, semis) : raw;
+    }).join(" ");
   }
 
   function buildFullPreviewText(){
@@ -857,7 +885,9 @@
 
       arr.forEach((line, idx) => {
         const lyr = String(line.lyrics || "").trim();
-        const notesLine = compactNotesLine(line.notes);
+
+        // ✅ show transposed notes in full preview
+        const notesLine = compactNotesLine(line.notes, state.capo || 0);
 
         const hasNotes = notesLine.replace(/—|\s/g,"").length > 0;
         const hasLyrics = !!lyr;
@@ -1147,7 +1177,6 @@
     lastActiveCardEl = getNearestVisibleCard();
     clearTick(); applyTick();
 
-    // ✅ make sure display matches capo after render
     refreshDisplayedNoteCells();
   }
 
@@ -1370,7 +1399,6 @@
     const pos = (typeof ta.selectionStart === "number") ? ta.selectionStart : currentText.length;
     const upto = currentText.slice(0, pos);
 
-    // If current box is empty, rhyme last word of previous card
     if(!currentText.trim()){
       const card = ta.closest(".card");
       if(card){
@@ -1390,7 +1418,6 @@
     if(words.length === 0) return "";
 
     const endsWithLetter = /[A-Za-z']$/.test(upto);
-    // If cursor is inside/at end of a word, rhyme PREVIOUS word
     if(endsWithLetter && words.length >= 2) return words[words.length - 2];
     return words[words.length - 1];
   }
@@ -1516,7 +1543,6 @@
     updateFullIfVisible();
     refreshRhymesFromActive();
 
-    // ✅ keep display synced
     refreshDisplayedNoteCells();
   }
 
@@ -1535,7 +1561,7 @@
       el.autoSplitBtn.textContent = "AutoSplit: " + (state.autoSplit ? "ON" : "OFF");
     });
 
-    // BPM (already fixed)
+    // BPM
     function commitBpm(){
       let n = parseInt(el.bpmInput.value, 10);
       if(!Number.isFinite(n)) n = state.bpm || 95;
@@ -1559,6 +1585,11 @@
       const n = parseInt(raw, 10);
       if(Number.isFinite(n) && n >= 40 && n <= 220){
         state.bpm = n;
+        if(state.project){
+          // persist draft so it can’t snap back on a render
+          state.project.bpm = n;
+          upsertProject(state.project);
+        }
         if(state.drumsOn) startDrums();
       }
     });
@@ -1566,10 +1597,10 @@
     el.bpmInput.addEventListener("change", commitBpm);
     el.bpmInput.addEventListener("blur", commitBpm);
 
-    // ✅ CAPO (FIX: refresh + persist + clamp on finish)
+    // ✅ CAPO (FIX: persist immediately so it can’t “snap back”)
     function commitCapo(){
       let n = parseInt(el.capoInput.value, 10);
-      if(!Number.isFinite(n)) n = state.capo || 0;
+      if(!Number.isFinite(n)) n = 0;
       n = clamp(n, 0, 12);
 
       state.capo = n;
@@ -1589,13 +1620,21 @@
       const raw = el.capoInput.value;
       if(raw === "") return;
 
-      const n = parseInt(raw, 10);
-      if(Number.isFinite(n)){
-        state.capo = clamp(n, 0, 12);
-        updateKeyFromAllNotes();
-        updateFullIfVisible();
-        refreshDisplayedNoteCells();
+      const n0 = parseInt(raw, 10);
+      if(!Number.isFinite(n0)) return;
+
+      const n = clamp(n0, 0, 12);
+
+      // ✅ update state + persist immediately
+      state.capo = n;
+      if(state.project){
+        state.project.capo = n;
+        upsertProject(state.project);
       }
+
+      updateKeyFromAllNotes();
+      updateFullIfVisible();
+      refreshDisplayedNoteCells();
     });
 
     el.capoInput.addEventListener("change", commitCapo);
@@ -1687,7 +1726,6 @@
   function init(){
     state.project = getCurrentProject();
 
-    // ✅ load saved project bpm/capo into state + inputs
     applyProjectSettingsToUI();
 
     el.autoSplitBtn.textContent = "AutoSplit: ON";
