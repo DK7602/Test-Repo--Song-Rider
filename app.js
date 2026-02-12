@@ -152,14 +152,18 @@ const LS_CUR = "songrider_TEST_currentProjectId";
       sections[sec] = Array.from({length: DEFAULT_LINES_PER_SECTION}, () => newLine());
     });
     return {
-      id: uuid(),
-      name,
-      createdAt: now(),
-      updatedAt: now(),
-      fullText: "",
-      sections
-    };
-  }
+  id: uuid(),
+  name,
+  createdAt: now(),
+  updatedAt: now(),
+
+  // ✅ per-project settings (saved in localStorage)
+  bpm: 95,
+  capo: 0,
+
+  fullText: "",
+  sections
+};
 
   function loadAllProjects(){
     try{
