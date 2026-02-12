@@ -489,7 +489,8 @@ const LS_CUR = "songrider_TEST_currentProjectId";
     const freq = noteCellToFreq(cells[nIdx].value);
     if(!freq) return;
 
-    pluck(freq, 180, 0.09, instWave());
+    const capoShift = Math.pow(2, (state.capo || 0) / 12);
+pluck(freq * capoShift, 180, 0.09, instWave());
   }
 
   /***********************
