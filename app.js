@@ -265,6 +265,7 @@ function normalizeProject(p){
     if(p.sections[sec].length < MIN_LINES_PER_SECTION){
       p.sections[sec].push(newLine());
     }
+  });
 
   return p;
 }
