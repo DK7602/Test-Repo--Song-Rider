@@ -466,9 +466,10 @@ function clearTick(){
 
 // During MP3 sync: only show tick when AutoScroll is ON
 function shouldTickRun(){
-  if(state.audioSyncOn) return !!state.autoScrollOn;
+  if(state.audioSyncOn) return true; // ✅ show tick during MP3 sync too
   return !!(state.drumsOn || state.instrumentOn || state.autoScrollOn);
 }
+
 
 function getVisibleCards(){
   const cards = getCards();
@@ -1469,6 +1470,28 @@ function refreshDisplayedNoteCells(){
 /***********************
 ACTIVE CARD selection (scroll-container aware)
 ***********************/
+// ✅ Scroll container support (sheetBody scrolls, not window)
+function getScrollContainer(){
+  return el.sheetBody || document.scrollingElement || document.documentElement;
+}
+
+// “play line” = top of the scrollable sheet area (not the sticky header)
+function getPlayLineY(){
+  const sb = el.sheetBody;
+  if(!sb) return getHeaderBottomY();
+  const r = sb.getBoundingClientRect();
+  return r.top + 12; // a little padding inside the sheet
+}
+
+function scrollToTopOfSheet(){
+  const sb = el.sheetBody;
+  if(sb){
+    sb.scrollTop = 0;
+    return;
+  }
+  try{ window.scrollTo({ top:0, behavior:"auto" }); }
+  catch{ window.scrollTo(0,0); }
+}
 
 // Returns the scrolling viewport element for cards (your #sheetBody)
 function getScrollViewport(){
@@ -1543,18 +1566,24 @@ function getNearestVisibleCard(){
   const cards = getCards();
   if(cards.length === 0) return null;
 
-  const yLine = getHeaderBottomY();
+  const yLine = getPlayLineY();
+  const sb = el.sheetBody;
+  const sbRect = sb ? sb.getBoundingClientRect() : null;
+
   let best = null;
   let bestDist = Infinity;
 
-  const vp = getScrollViewport();
-  const limitTop = vp ? vp.getBoundingClientRect().top : 0;
-  const limitBot = vp ? vp.getBoundingClientRect().bottom : window.innerHeight;
-
   for(const c of cards){
     const r = c.getBoundingClientRect();
-    if(r.bottom < limitTop) continue;
-    if(r.top > limitBot) continue;
+
+    // only consider cards visible inside the sheetBody viewport
+    if(sbRect){
+      if(r.bottom < sbRect.top) continue;
+      if(r.top > sbRect.bottom) continue;
+    }else{
+      if(r.bottom < yLine || r.top > window.innerHeight) continue;
+    }
+
     const dist = Math.abs(r.top - yLine);
     if(dist < bestDist){
       bestDist = dist;
@@ -1564,6 +1593,7 @@ function getNearestVisibleCard(){
   return best || cards[0];
 }
 
+
 /**
  * Choose the card the play-line is actually on.
  */
@@ -1571,7 +1601,7 @@ function getCardAtPlayLine(){
   const cards = getCards();
   if(cards.length === 0) return null;
 
-  const yLine = getHeaderBottomY();
+  const yLine = getPlayLineY();
   const tol = 24;
 
   for(const c of cards){
@@ -1582,36 +1612,37 @@ function getCardAtPlayLine(){
   return getNearestVisibleCard() || cards[0];
 }
 
+
 function scrollCardIntoView(card){
   if(!card) return;
 
-  const vp = getScrollViewport();
+  const sb = el.sheetBody;
 
-  // ✅ NEW: scroll INSIDE #sheetBody (not window)
-  if(vp){
-    const vpr = vp.getBoundingClientRect();
-    const cr = card.getBoundingClientRect();
+  // If sheetBody is the scroller, scroll inside it (NOT window)
+  if(sb){
+    const sbRect = sb.getBoundingClientRect();
+    const r = card.getBoundingClientRect();
 
-    // put card near top of the viewport with a little padding
-    const desiredTop = vpr.top + 10;
-    const delta = cr.top - desiredTop;
+    // how far the card is from the top of the scroll viewport
+    const delta = (r.top - sbRect.top);
 
-    vp.scrollTop = Math.max(0, Math.round(vp.scrollTop + delta));
+    // target = current scrollTop + delta - padding
+    const pad = 12;
+    const target = Math.max(0, Math.round(sb.scrollTop + delta - pad));
+
+    sb.scrollTop = target;
     return;
   }
 
-  // fallback: old window scroll
+  // fallback
   const yLine = getHeaderBottomY();
   const r = card.getBoundingClientRect();
   const cardTopDoc = r.top + window.scrollY;
   const targetY = Math.max(0, Math.round(cardTopDoc - yLine));
-
-  try{
-    window.scrollTo({ top: targetY, behavior: "auto" });
-  }catch{
-    window.scrollTo(0, targetY);
-  }
+  try{ window.scrollTo({ top: targetY, behavior:"auto" }); }
+  catch{ window.scrollTo(0, targetY); }
 }
+
 
 
 /***********************
@@ -2103,6 +2134,7 @@ async function markBeat1Now(){
 // ✅ Force immediate re-sync visual + tick baseline
 state.tick8 = 0;
 state.lastAudioTick8 = -1;
+state.lastHorseBar = -1; // ✅ reset horse bar lock
 clearTick();
 applyTick();
 
@@ -2126,9 +2158,11 @@ function startBeatClock(){
   const eighthMs = Math.round((60000 / bpm) / 2);
   state.eighthMs = eighthMs;
 
-  state.tick8 = 0;
-  state.lastAutoBar = -1;
-  clearTick();
+state.tick8 = 0;
+state.lastAutoBar = -1;
+state.lastHorseBar = -1; // ✅ reset so horse runs again
+clearTick();
+
 
  state.beatTimer = setInterval(() => {
   try{
@@ -3245,9 +3279,10 @@ updateAudioButtonsUI();
     return;
   }
 
-  state.lastAudioTick8 = -1;
-  state.audioSyncRaf = requestAnimationFrame(audioSyncFrame);
-}
+state.lastAudioTick8 = -1;
+state.lastHorseBar = -1; // ✅ reset for MP3 sync too
+state.audioSyncRaf = requestAnimationFrame(audioSyncFrame);
+
 
 
 function pickBestMimeType(){
@@ -3615,8 +3650,7 @@ function goToSection(sec){
   refreshDisplayedNoteCells();
   updateFullIfVisible();
 
-  try{ window.scrollTo({ top: 0, behavior: "auto" }); }
-  catch{ window.scrollTo(0, 0); }
+scrollToTopOfSheet();
 }
 
 function nextSection(){
