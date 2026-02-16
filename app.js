@@ -1,1739 +1,3775 @@
-/* app.js (FULL REPLACE v28) */
+/* app.js (FULL REPLACE MAIN v44) */
 (() => {
-  "use strict";
 
-  /***********************
-   * FORCE-NUKE OLD SERVICE WORKER CACHE
-   * (Fixes “I updated but it still runs old code”)
-   ***********************/
-  try{
-    if("serviceWorker" in navigator){
-      navigator.serviceWorker.getRegistrations()
-        .then(rs => rs.forEach(r => r.unregister()))
-        .catch(()=>{});
-    }
-  }catch{}
+"use strict";
 
-  /***********************
-   * Utils
-   ***********************/
-  const $ = (id) => document.getElementById(id);
-  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-  const now = () => Date.now();
-
-  function uuid(){
-    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === "x" ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
+/***********************
+FORCE-NUKE OLD SERVICE WORKER CACHE
+***********************/
+try{
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.getRegistrations()
+      .then(rs => rs.forEach(r => r.unregister()))
+      .catch(()=>{});
   }
+}catch{}
 
-  /***********************
-   * DOM
-   ***********************/
-  const el = {
-    headshotWrap: $("headshotWrap"),
+/***********************
+Utils
+***********************/
+const $ = (id) => document.getElementById(id);
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+const now = () => Date.now();
 
-    togglePanelBtn: $("togglePanelBtn"),
-    panelBody: $("panelBody"),
-    miniBar: $("miniBar"),
-
-    autoSplitBtn: $("autoSplitBtn"),
-    bpmInput: $("bpmInput"),
-    capoInput: $("capoInput"),
-    keyOutput: $("keyOutput"),
-
-    instAcoustic: $("instAcoustic"),
-    instElectric: $("instElectric"),
-    instPiano: $("instPiano"),
-
-    drumRock: $("drumRock"),
-    drumHardRock: $("drumHardRock"),
-    drumPop: $("drumPop"),
-    drumRap: $("drumRap"),
-
-    mRock: $("mRock"),
-    mHardRock: $("mHardRock"),
-    mPop: $("mPop"),
-    mRap: $("mRap"),
-
-    autoPlayBtn: $("autoPlayBtn"),
-    mScrollBtn: $("mScrollBtn"),
-
-    recordBtn: $("recordBtn"),
-    mRecordBtn: $("mRecordBtn"),
-
-    sortSelect: $("sortSelect"),
-    projectSelect: $("projectSelect"),
-    newProjectBtn: $("newProjectBtn"),
-    renameProjectBtn: $("renameProjectBtn"),
-    deleteProjectBtn: $("deleteProjectBtn"),
-
-    recordingsList: $("recordingsList"),
-
-    tabs: $("tabs"),
-    sheetTitle: $("sheetTitle"),
-    sheetHint: $("sheetHint"),
-    sheetBody: $("sheetBody"),
-    sheetActions: $("sheetActions"),
-
-    rBtn: $("rBtn"),
-    rhymeDock: $("rhymeDock"),
-    hideRhymeBtn: $("hideRhymeBtn"),
-    rhymeWords: $("rhymeWords"),
-    rhymeTitle: $("rhymeTitle")
-  };
-
-  /***********************
-   * Active card + active lyrics
-   ***********************/
-  let lastLyricsTextarea = null;
-  let lastActiveCardEl = null;
-
-  document.addEventListener("focusin", (e) => {
-    const t = e.target;
-
-    if(t && t.tagName === "TEXTAREA" && t.classList.contains("lyrics")){
-      lastLyricsTextarea = t;
-      const card = t.closest(".card");
-      if(card) lastActiveCardEl = card;
-      refreshRhymesFromActive();
-      return;
-    }
-
-    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")){
-      const card = t.closest(".card");
-      if(card) lastActiveCardEl = card;
-    }
+function uuid(){
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
   });
+}
 
-  document.addEventListener("pointerdown", (e) => {
-    const card = e.target && e.target.closest ? e.target.closest(".card") : null;
+function escapeHtml(s){
+  return String(s ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+/***********************
+DOM
+***********************/
+const el = {
+  headshotWrap: $("headshotWrap"),
+
+   uploadAudioBtn: $("uploadAudioBtn"),
+  beat1Btn: $("beat1Btn"),
+  nowPlaying: $("nowPlaying"),
+
+  
+  togglePanelBtn: $("togglePanelBtn"),
+  panelBody: $("panelBody"),
+  miniBar: $("miniBar"),
+
+  autoSplitBtn: $("autoSplitBtn"),
+  bpmInput: $("bpmInput"),
+  capoInput: $("capoInput"),
+  keyOutput: $("keyOutput"),
+
+  instAcoustic: $("instAcoustic"),
+  instElectric: $("instElectric"),
+  instPiano: $("instPiano"),
+
+  // note-length buttons
+  instDots: $("instDots"),
+  instTieBar: $("instTieBar"),
+
+  exportBtn: $("exportBtn"),
+
+  drumRock: $("drumRock"),
+  drumHardRock: $("drumHardRock"),
+  drumPop: $("drumPop"),
+  drumRap: $("drumRap"),
+
+  mRock: $("mRock"),
+  mHardRock: $("mHardRock"),
+  mPop: $("mPop"),
+  mRap: $("mRap"),
+
+  autoPlayBtn: $("autoPlayBtn"),
+  mScrollBtn: $("mScrollBtn"),
+
+  recordBtn: $("recordBtn"),
+  mRecordBtn: $("mRecordBtn"),
+
+  sortSelect: $("sortSelect"),
+  projectSelect: $("projectSelect"),
+  newProjectBtn: $("newProjectBtn"),
+  renameProjectBtn: $("renameProjectBtn"),
+  deleteProjectBtn: $("deleteProjectBtn"),
+
+  recordingsList: $("recordingsList"),
+
+  tabs: $("tabs"),
+  sheetTitle: $("sheetTitle"),
+  sheetHint: $("sheetHint"),
+  sheetBody: $("sheetBody"),
+  sheetActions: $("sheetActions"),
+
+  rBtn: $("rBtn"),
+  rhymeDock: $("rhymeDock"),
+  hideRhymeBtn: $("hideRhymeBtn"),
+  rhymeWords: $("rhymeWords"),
+  rhymeTitle: $("rhymeTitle")
+};
+
+/***********************
+Active card + active lyrics
+***********************/
+let lastLyricsTextarea = null;
+let lastActiveCardEl = null;
+
+document.addEventListener("focusin", (e) => {
+  const t = e.target;
+
+  if(t && t.tagName === "TEXTAREA" && t.classList.contains("lyrics")){
+    lastLyricsTextarea = t;
+    const card = t.closest(".card");
     if(card) lastActiveCardEl = card;
-
-    if(e.target && e.target.tagName === "TEXTAREA" && e.target.classList.contains("lyrics")){
-      lastLyricsTextarea = e.target;
-      refreshRhymesFromActive();
-    }
-  }, { passive:true });
-
-  document.addEventListener("selectionchange", () => {
-    if(!lastLyricsTextarea) return;
-    if(document.activeElement !== lastLyricsTextarea) return;
     refreshRhymesFromActive();
+    return;
+  }
+
+  if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")){
+    const card = t.closest(".card");
+    if(card) lastActiveCardEl = card;
+  }
+});
+
+document.addEventListener("pointerdown", (e) => {
+  const card = e.target && e.target.closest ? e.target.closest(".card") : null;
+  if(card) lastActiveCardEl = card;
+
+  if(e.target && e.target.tagName === "TEXTAREA" && e.target.classList.contains("lyrics")){
+    lastLyricsTextarea = e.target;
+    refreshRhymesFromActive();
+  }
+}, { passive:true });
+
+document.addEventListener("selectionchange", () => {
+  if(!lastLyricsTextarea) return;
+  if(document.activeElement !== lastLyricsTextarea) return;
+  refreshRhymesFromActive();
+});
+
+/***********************
+Sections (ORDER LOCKED)
+***********************/
+const SECTIONS = ["Full","VERSE 1","CHORUS 1","VERSE 2","CHORUS 2","VERSE 3","BRIDGE","CHORUS 3"];
+const DEFAULT_LINES_PER_SECTION = 20;
+
+/***********************
+Project storage (MAIN)
+***********************/
+const LS_KEY = "songrider_v25_projects";
+const LS_CUR = "songrider_v25_currentProjectId";
+
+function newLine(){
+  return {
+    id: uuid(),
+    notes: Array(8).fill(""),
+    lyrics: "",
+    beats: Array(4).fill("")
+  };
+}
+
+function defaultProject(name="New Song"){
+  const sections = {};
+  SECTIONS.filter(s=>s!=="Full").forEach(sec => {
+    sections[sec] = Array.from({length: DEFAULT_LINES_PER_SECTION}, () => newLine());
   });
-
-  /***********************
-   * Sections (ORDER LOCKED)
-   ***********************/
-  const SECTIONS = ["Full","VERSE 1","CHORUS 1","VERSE 2","CHORUS 2","VERSE 3","BRIDGE","CHORUS 3"];
-  const DEFAULT_LINES_PER_SECTION = 20;
-
-  /***********************
-   * Project storage
-   ***********************/
-  const LS_KEY = "songrider_TEST_projects";
-  const LS_CUR = "songrider_TEST_currentProjectId";
-
-  function newLine(){
-    return {
-      id: uuid(),
-      notes: Array(8).fill(""),
-      lyrics: "",
-      beats: Array(4).fill("")
-    };
-  }
-
-  function defaultProject(name="New Song"){
-    const sections = {};
-    SECTIONS.filter(s=>s!=="Full").forEach(sec => {
-      sections[sec] = Array.from({length: DEFAULT_LINES_PER_SECTION}, () => newLine());
-    });
-    return {
-      id: uuid(),
-      name,
-      createdAt: now(),
-      updatedAt: now(),
-
-      // ✅ per-project settings (saved in localStorage)
-      bpm: 95,
-      capo: 0,
-
-      fullText: "",
-      sections
-    };
-  }
-
-  function loadAllProjects(){
-    try{
-      const raw = localStorage.getItem(LS_KEY);
-      const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
-    }catch{
-      return [];
-    }
-  }
-
-  function saveAllProjects(projects){
-    localStorage.setItem(LS_KEY, JSON.stringify(projects));
-  }
-
-  function upsertProject(p){
-    const all = loadAllProjects();
-    const i = all.findIndex(x => x.id === p.id);
-    p.updatedAt = now();
-    if(i >= 0) all[i] = p;
-    else all.unshift(p);
-    saveAllProjects(all);
-    localStorage.setItem(LS_CUR, p.id);
-  }
-
-  function deleteProjectById(id){
-    const all = loadAllProjects().filter(p => p.id !== id);
-    saveAllProjects(all);
-    localStorage.removeItem(LS_CUR);
-  }
-
-  function normalizeProject(p){
-    if(!p || typeof p !== "object") return null;
-
-    if(typeof p.fullText !== "string") p.fullText = "";
-    if(!p.sections || typeof p.sections !== "object") p.sections = {};
-    if(!Number.isFinite(p.bpm)) p.bpm = 95;
-    if(!Number.isFinite(p.capo)) p.capo = 0;
-
-    SECTIONS.filter(s=>s!=="Full").forEach(sec => {
-      if(!Array.isArray(p.sections[sec])) p.sections[sec] = [];
-
-      p.sections[sec] = p.sections[sec].map(line => {
-        const L = (line && typeof line === "object") ? line : {};
-        if(typeof L.id !== "string") L.id = uuid();
-        if(!Array.isArray(L.notes)) L.notes = Array(8).fill("");
-        if(typeof L.lyrics !== "string") L.lyrics = "";
-        if(!Array.isArray(L.beats)) L.beats = Array(4).fill("");
-
-        L.notes = Array.from({length:8}, (_,i)=> String(L.notes[i] ?? "").trim());
-        L.beats = Array.from({length:4}, (_,i)=> String(L.beats[i] ?? "").trim());
-        return L;
-      });
-
-      while(p.sections[sec].length < DEFAULT_LINES_PER_SECTION){
-        p.sections[sec].push(newLine());
-      }
-    });
-
-    return p;
-  }
-
-  function getCurrentProject(){
-    const all = loadAllProjects().map(normalizeProject).filter(Boolean);
-    if(all.length === 0){
-      const p = defaultProject("New Song");
-      upsertProject(p);
-      return p;
-    }
-    const curId = localStorage.getItem(LS_CUR);
-    return (curId && all.find(p => p.id === curId)) || all[0];
-  }
-
-  /***********************
-   * IndexedDB (Recordings)
-   ***********************/
-  const DB_NAME = "songrider_db_TEST";
-  const DB_VER = 1;
-  const STORE = "recordings";
-
-  function openDB(){
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VER);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if(!db.objectStoreNames.contains(STORE)){
-          db.createObjectStore(STORE, { keyPath: "id" });
-        }
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function dbPut(rec){
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).put(rec);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => reject(tx.error);
-    });
-  }
-
-  async function dbDelete(id){
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).delete(id);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => reject(tx.error);
-    });
-  }
-
-  async function dbGetAll(){
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, "readonly");
-      const req = tx.objectStore(STORE).getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  /***********************
-   * State
-   ***********************/
-  const state = {
-    project: null,
-    currentSection: "Full",
+  return {
+    id: uuid(),
+    name,
+    createdAt: now(),
+    updatedAt: now(),
     bpm: 95,
     capo: 0,
-    autoSplit: true,
-
-    instrument: "piano",
-    instrumentOn: false,
-
-    drumStyle: "rap",
-    drumsOn: false,
-
-    autoScrollOn: false,
-    autoScrollTimer: null,
-
-    ctx: null,
-    drumTimer: null,
-
-    isRecording: false,
-    recStream: null,
-    rec: null,
-    recChunks: [],
-
-    beatTimer: null,
-    tick8: 0
+    fullText: "",
+    sections
   };
+}
 
-  /***********************
-   * Headshot blink
-   ***********************/
-  function doBlink(){
-    if(!el.headshotWrap) return;
-    el.headshotWrap.classList.add("blink");
-    setTimeout(() => el.headshotWrap.classList.remove("blink"), 80);
+function loadAllProjects(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch{
+    return [];
   }
+}
 
-  /***********************
-   * Tick UI
-   ***********************/
-  function clearTick(){
-    const root = el.sheetBody;
-    if(!root) return;
-    root.querySelectorAll(".tick").forEach(x => x.classList.remove("tick"));
-  }
+function saveAllProjects(projects){
+  localStorage.setItem(LS_KEY, JSON.stringify(projects));
+}
 
-  function applyTick(){
-    const root = el.sheetBody;
-    if(!root) return;
-    if(state.currentSection === "Full") return;
+function upsertProject(p){
+  const all = loadAllProjects();
+  const i = all.findIndex(x => x.id === p.id);
+  p.updatedAt = now();
+  if(i >= 0) all[i] = p;
+  else all.unshift(p);
+  saveAllProjects(all);
+  localStorage.setItem(LS_CUR, p.id);
+}
 
-    const nIdx = state.tick8 % 8;
-    const bIdx = Math.floor((state.tick8 % 8) / 2);
+function deleteProjectById(id){
+  const all = loadAllProjects().filter(p => p.id !== id);
+  saveAllProjects(all);
+  localStorage.removeItem(LS_CUR);
+}
 
-    root.querySelectorAll(".card").forEach(card => {
-      const notes = card.querySelectorAll(".noteCell");
-      const beats = card.querySelectorAll(".beatCell");
-      if(notes[nIdx]) notes[nIdx].classList.add("tick");
-      if(beats[bIdx]) beats[bIdx].classList.add("tick");
+function normalizeProject(p){
+  if(!p || typeof p !== "object") return null;
+
+  if(typeof p.fullText !== "string") p.fullText = "";
+  if(!p.sections || typeof p.sections !== "object") p.sections = {};
+  if(!Number.isFinite(p.bpm)) p.bpm = 95;
+  if(!Number.isFinite(p.capo)) p.capo = 0;
+
+  SECTIONS.filter(s=>s!=="Full").forEach(sec => {
+    if(!Array.isArray(p.sections[sec])) p.sections[sec] = [];
+
+    p.sections[sec] = p.sections[sec].map(line => {
+      const L = (line && typeof line === "object") ? line : {};
+      if(typeof L.id !== "string") L.id = uuid();
+      if(!Array.isArray(L.notes)) L.notes = Array(8).fill("");
+      if(typeof L.lyrics !== "string") L.lyrics = "";
+      if(!Array.isArray(L.beats)) L.beats = Array(4).fill("");
+
+      L.notes = Array.from({length:8}, (_,i)=> String(L.notes[i] ?? "").trim());
+      L.beats = Array.from({length:4}, (_,i)=> String(L.beats[i] ?? "").trim());
+      return L;
     });
+
+    while(p.sections[sec].length < DEFAULT_LINES_PER_SECTION){
+      p.sections[sec].push(newLine());
+    }
+  });
+
+  return p;
+}
+
+function getCurrentProject(){
+  const all = loadAllProjects().map(normalizeProject).filter(Boolean);
+  if(all.length === 0){
+    const p = defaultProject("New Song");
+    upsertProject(p);
+    return p;
+  }
+  const curId = localStorage.getItem(LS_CUR);
+  return (curId && all.find(p => p.id === curId)) || all[0];
+}
+
+/***********************
+IndexedDB (Recordings) MAIN
+***********************/
+const DB_NAME = "songrider_db_v25";
+const DB_VER = 1;
+const STORE = "recordings";
+
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains(STORE)){
+        db.createObjectStore(STORE, { keyPath: "id" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbPut(rec){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).put(rec);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbDelete(id){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbGetAll(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/***********************
+State
+***********************/
+const state = {
+  project: null,
+  currentSection: "Full",
+  bpm: 95,
+  capo: 0,
+  autoSplit: true,
+
+  instrument: "piano",
+  instrumentOn: false,
+lastChordRaw: "",
+
+  // modes:
+  //   "half"  = DEFAULT (4/8ths OR next note OR end-of-bar)
+  //   "eighth"= fixed 1/8 ( ... )
+  //   "bar"   = tie-to-next across cards ( _ )
+  noteLenMode: "half",
+
+  drumStyle: "rap",
+  drumsOn: false,
+
+  autoScrollOn: false,
+  playCardIndex: null,
+  
+lastAutoBar: -1,
+
+  ctx: null,
+  masterGain: null,
+  masterComp: null,
+  masterLimiter: null,
+  masterPost: null,
+
+  recDest: null,
+  recWired: false,
+
+  drumTimer: null,
+
+  isRecording: false,
+  rec: null,
+  recChunks: [],
+
+  recMicStream: null,
+  recMicSource: null,
+
+  beatTimer: null,
+  tick8: 0,
+  eighthMs: 315,
+
+
+  // NEW: kills pending strum timeouts instantly when toggling instruments
+  audioToken: 0,
+
+    // ✅ AUDIO SYNC (MP3 master clock)
+  audioSyncOn: false,
+  audioSyncRaf: null,
+  audioSyncAudio: null,
+  audioSyncUrl: null,
+  audioSyncRecId: null,
+  audioSyncOffsetSec: 0,   // where Beat 1 starts in the audio
+  lastAudioTick8: -1,
+  tapTimes: [],
+   audioSyncSource: null,   // ✅ WebAudio node for the MP3
+  audioSyncGain: null,     // ✅ optional gain for MP3 level
+  recMix: null,
+  recMixWired: false,
+  recKeepAlive: null,
+};
+
+/***********************
+Headshot blink
+***********************/
+function doBlink(){
+  if(!el.headshotWrap) return;
+  el.headshotWrap.classList.add("blink");
+  setTimeout(() => el.headshotWrap.classList.remove("blink"), 80);
+}
+
+/***********************
+Tick UI (stable + can tick all visible cards)
+***********************/
+function clearTick(){
+  (state.lastTickEls || []).forEach(elm => {
+    try{ elm.classList.remove("tick"); }catch{}
+  });
+  state.lastTickEls = [];
+}
+
+// During MP3 sync: only show tick when AutoScroll is ON
+function shouldTickRun(){
+  if(state.audioSyncOn) return !!state.autoScrollOn;
+  return !!(state.drumsOn || state.instrumentOn || state.autoScrollOn);
+}
+
+function getVisibleCards(){
+  const cards = getCards();
+  if(cards.length === 0) return [];
+
+  const topLine = getHeaderBottomY() - 18;
+  const bottomLine = window.innerHeight + 18;
+
+  const vis = [];
+  for(const c of cards){
+    const r = c.getBoundingClientRect();
+    if(r.bottom < topLine) continue;
+    if(r.top > bottomLine) continue;
+    vis.push(c);
+  }
+  return vis.length ? vis : [cards[0]];
+}
+
+function applyTick(){
+  if(!el.sheetBody) return;
+  if(state.currentSection === "Full") return;
+  if(!shouldTickRun()) return;
+
+  const nIdx = ((state.tick8 % 8) + 8) % 8;
+  const bIdx = Math.floor(nIdx / 2);
+
+  const touched = [];
+
+  // If AutoScroll ON: tick only the playback card (keeps perf good)
+  // If AutoScroll OFF: tick ALL visible cards (fixes “only one line” complaint)
+  const cards = state.autoScrollOn
+    ? [getPlaybackCard() || getCardAtPlayLine() || getNearestVisibleCard()].filter(Boolean)
+    : getVisibleCards();
+
+  for(const card of cards){
+    const notes = card.querySelectorAll(".noteCell");
+    const beats = card.querySelectorAll(".beatCell");
+
+    if(notes && notes[nIdx]){
+      notes[nIdx].classList.add("tick");
+      touched.push(notes[nIdx]);
+    }
+    if(beats && beats[bIdx]){
+      beats[bIdx].classList.add("tick");
+      touched.push(beats[bIdx]);
+    }
   }
 
-  /***********************
-   * Audio
-   ***********************/
-  function ensureCtx(){
-    if(!state.ctx){
-      state.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if(state.ctx.state === "suspended"){
-      state.ctx.resume().catch(()=>{});
-    }
-    return state.ctx;
+  state.lastTickEls = touched;
+}
+/***********************
+Audio (routed through master bus)
+***********************/
+function ensureCtx(){
+  if(!state.ctx){
+    state.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // safer master levels (prevents harsh “screech” perception on phones)
+    state.masterGain = state.ctx.createGain();
+    state.masterGain.gain.value = 0.90;
+
+    state.masterComp = state.ctx.createDynamicsCompressor();
+    state.masterComp.threshold.value = -22;
+    state.masterComp.knee.value = 18;
+    state.masterComp.ratio.value = 2.8;
+    state.masterComp.attack.value = 0.008;
+    state.masterComp.release.value = 0.20;
+
+    // safety limiter (hard stop)
+    state.masterLimiter = state.ctx.createDynamicsCompressor();
+    state.masterLimiter.threshold.value = -10;
+    state.masterLimiter.knee.value = 0;
+    state.masterLimiter.ratio.value = 20;
+    state.masterLimiter.attack.value = 0.002;
+    state.masterLimiter.release.value = 0.09;
+
+    state.masterPost = state.ctx.createGain();
+    state.masterPost.gain.value = 1.0;
+
+    state.masterGain.connect(state.masterComp);
+    state.masterComp.connect(state.masterLimiter);
+    state.masterLimiter.connect(state.masterPost);
+    state.masterPost.connect(state.ctx.destination);
   }
 
-  function pluck(freq=440, ms=180, gain=0.08, type="sine"){
-    const ctx = ensureCtx();
-    const t0 = ctx.currentTime;
+  if(state.ctx.state === "suspended"){
+    state.ctx.resume().catch(()=>{});
+  }
+  return state.ctx;
+}
 
+function getOutNode(){
+  ensureCtx();
+  return state.masterGain || state.ctx.destination;
+}
+
+function safeDisconnect(node){
+  try{ node.disconnect(); }catch{}
+}
+
+function scheduleCleanup(nodes, ms){
+  setTimeout(() => {
+    (nodes || []).forEach(n => safeDisconnect(n));
+  }, Math.max(60, ms|0));
+}
+
+/***********************
+Basic drum building blocks
+***********************/
+function pluck(freq=440, ms=180, gain=0.08, type="sine"){
+  const ctx = ensureCtx();
+  const t0 = ctx.currentTime;
+
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+
+  o.type = type;
+  o.frequency.value = freq;
+
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
+
+  o.connect(g);
+  g.connect(getOutNode());
+
+  o.start(t0);
+  o.stop(t0 + ms/1000 + 0.02);
+
+  scheduleCleanup([o,g], ms + 80);
+}
+
+function noise(ms=40, gain=0.08){
+  const ctx = ensureCtx();
+  const bufferSize = Math.max(256, Math.floor(ctx.sampleRate * (ms/1000)));
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i] = (Math.random()*2-1);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+
+  const g = ctx.createGain();
+  const t0 = ctx.currentTime;
+  g.gain.setValueAtTime(gain, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
+
+  src.connect(g);
+  g.connect(getOutNode());
+  src.start();
+
+  scheduleCleanup([src,g], ms + 120);
+}
+
+function drumHit(kind){
+  if(kind === "kick") pluck(70, 120, 0.16, "sine");
+  if(kind === "snare"){ noise(60, 0.10); pluck(180, 70, 0.05, "square"); }
+  if(kind === "hat"){ noise(25, 0.05); }
+}
+
+/***********************
+NOTE / CHORD PARSERS
+***********************/
+function parseNoteToken(v){
+  const s0 = String(v||"").trim();
+  if(!s0) return null;
+
+  const s = s0
+    .replace(/♯/g, "#")
+    .replace(/♭/g, "b")
+    .trim();
+
+  const m = s.match(/^([A-Ga-g])\s*([#b])?/);
+  if(!m) return null;
+
+  const letter = m[1].toUpperCase();
+  const acc = (m[2] || "").toLowerCase();
+
+  const key =
+    acc === "#"
+      ? (letter + "#")
+      : acc === "b"
+        ? (letter + "B")
+        : letter;
+
+  return { key, letter, acc };
+}
+
+const NOTE_TO_PC = {
+  "C":0,"C#":1,"DB":1,
+  "D":2,"D#":3,"EB":3,
+  "E":4,
+  "F":5,"F#":6,"GB":6,
+  "G":7,"G#":8,"AB":8,
+  "A":9,"A#":10,"BB":10,
+  "B":11
+};
+const PC_TO_NAME = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+function noteToPC(n){
+  const p = parseNoteToken(n);
+  if(!p) return null;
+  return NOTE_TO_PC[p.key] ?? null;
+}
+
+function transposeNoteName(note, semitones){
+  const pc = noteToPC(note);
+  if(pc === null) return String(note||"").trim();
+  const t = ((pc + (semitones|0)) % 12 + 12) % 12;
+  return PC_TO_NAME[t];
+}
+
+// transpose chord root only, preserve suffix
+function transposeChordName(chord, semis){
+  const s0 = String(chord||"").trim();
+  if(!s0) return "";
+  const s = s0.replace(/♯/g,"#").replace(/♭/g,"b").trim();
+  const m = s.match(/^([A-Ga-g])\s*([#b])?(.*)$/);
+  if(!m) return s0;
+  const root = (m[1].toUpperCase() + (m[2]||""));
+  const rest = String(m[3]||"");
+  const tRoot = transposeNoteName(root, semis);
+  return (tRoot + rest).trim();
+}
+
+/***********************
+CHORD → INTERVALS → MIDIs
+Supports: maj, m, dim, aug, sus2/sus4, 6, 7, maj7, m7, add9, 9, maj9, m9
+Also supports slash bass: D/F#
+***********************/
+function parseChordToken(raw){
+  const s0 = String(raw||"").trim();
+  if(!s0) return null;
+
+  const s = s0
+    .replace(/♯/g,"#")
+    .replace(/♭/g,"b")
+    .replace(/\s+/g,"")
+    .trim();
+
+  const parts = s.split("/");
+  const main = parts[0] || "";
+  const bassTok = parts[1] || "";
+
+  const m = main.match(/^([A-Ga-g])([#b]?)(.*)$/);
+  if(!m) return null;
+
+  const rootName = (m[1].toUpperCase() + (m[2]||""));
+  const rootPC = noteToPC(rootName);
+  if(rootPC === null) return null;
+
+  let qual = (m[3]||"");
+
+  qual = qual
+    .replace(/^maj/i,"maj")
+    .replace(/^min/i,"m")
+    .replace(/^-/,"m")
+    .replace(/^M7/,"maj7")
+    .replace(/Δ7/i,"maj7");
+
+  const bassPC = bassTok ? noteToPC(bassTok) : null;
+
+  let triad = "maj";
+  if(/^m(?!aj)/i.test(qual)) triad = "min";
+  if(/dim|o/i.test(qual)) triad = "dim";
+  if(/aug|\+/i.test(qual)) triad = "aug";
+  if(/sus2/i.test(qual)) triad = "sus2";
+  if(/sus4|sus/i.test(qual)) triad = "sus4";
+
+  let intervals = [];
+  if(triad === "maj") intervals = [0,4,7];
+  if(triad === "min") intervals = [0,3,7];
+  if(triad === "dim") intervals = [0,3,6];
+  if(triad === "aug") intervals = [0,4,8];
+  if(triad === "sus2") intervals = [0,2,7];
+  if(triad === "sus4") intervals = [0,5,7];
+
+  const hasMaj7 = /maj7/i.test(qual);
+  const has7 = /7/.test(qual) && !hasMaj7;
+  const hasM7minor = /m7/i.test(qual) && !hasMaj7;
+
+  const has6 = /6/.test(qual) && !/16/.test(qual);
+  const hasAdd9 = /add9/i.test(qual);
+  const has9 = /(maj9|m9|[^a-z]9|9$)/i.test(qual);
+  const isMaj9 = /maj9/i.test(qual);
+  const isMin9 = /m9/i.test(qual) && !isMaj9;
+
+  if(hasMaj7) intervals.push(11);
+  else if(hasM7minor || (triad==="min" && has7)) intervals.push(10);
+  else if(has7) intervals.push(10);
+
+  if(has6) intervals.push(9);
+
+  if(hasAdd9 || has9){
+    if(isMaj9) { if(!intervals.includes(11)) intervals.push(11); intervals.push(14); }
+    else if(isMin9) { if(!intervals.includes(10)) intervals.push(10); intervals.push(14); }
+    else intervals.push(14);
+  }
+
+  intervals = Array.from(new Set(intervals)).sort((a,b)=>a-b);
+
+  return {
+    raw: s0,
+    rootName,
+    rootPC,
+    bassPC,
+    triad,
+    intervals
+  };
+}
+
+function midiToFreq(m){
+  return 440 * Math.pow(2, (m - 69)/12);
+}
+
+function nearestMidiForPC(pc, targetMidi){
+  const t = Math.round(targetMidi);
+  const candidates = [];
+  for(let k=-4;k<=4;k++){
+    const m = t + k;
+    if(((m % 12) + 12) % 12 === pc) candidates.push(m);
+  }
+  if(candidates.length === 0) return t;
+  let best = candidates[0], bd = Math.abs(best - t);
+  for(const c of candidates){
+    const d = Math.abs(c - t);
+    if(d < bd){ bd = d; best = c; }
+  }
+  return best;
+}
+
+/***********************
+Voicing builders
+***********************/
+function buildPianoVoicing(ch){
+  const root = ch.rootPC;
+  const tones = ch.intervals.map(iv => (root + iv) % 12);
+
+  const bassPC = (ch.bassPC !== null) ? ch.bassPC : root;
+  const bass = nearestMidiForPC(bassPC, 48); // ~C3
+
+  const target = 64; // ~E4
+  const mids = [];
+
+  const want = [];
+  const has = (pc)=> tones.includes(pc);
+
+  const thirdPC = (root + (ch.triad==="min"?3:(ch.triad==="sus2"?2:(ch.triad==="sus4"?5:4)))) % 12;
+  const fifthPC = (root + (ch.triad==="dim"?6:(ch.triad==="aug"?8:7))) % 12;
+  const seventhPC = has((root+11)%12) ? (root+11)%12 : (has((root+10)%12) ? (root+10)%12 : null);
+  const ninthPC = has((root+2)%12) ? (root+2)%12 : null;
+
+  if(has(thirdPC)) want.push(thirdPC);
+  if(seventhPC!==null) want.push(seventhPC);
+  if(has(fifthPC)) want.push(fifthPC);
+  if(ninthPC!==null) want.push(ninthPC);
+  want.push(root);
+
+  for(const pc of want){
+    const m = nearestMidiForPC(pc, target + mids.length*3);
+    if(!mids.includes(m)) mids.push(m);
+    if(mids.length >= 4) break;
+  }
+
+  while(mids.length < 3){
+    const pc = tones[mids.length % tones.length];
+    const m = nearestMidiForPC(pc, target + mids.length*3);
+    if(!mids.includes(m)) mids.push(m);
+  }
+
+  return [bass, ...mids].sort((a,b)=>a-b);
+}
+
+function buildGuitarStrumVoicing(ch){
+  const root = ch.rootPC;
+  const tones = ch.intervals.map(iv => (root + iv) % 12);
+  const bassPC = (ch.bassPC !== null) ? ch.bassPC : root;
+
+  const bass = nearestMidiForPC(bassPC, 43); // ~G2/A2
+  const mids = [];
+  const targets = [52, 55, 59, 64, 67]; // E3..G4
+
+  for(let i=0;i<targets.length;i++){
+    const pc = tones[i % tones.length];
+    mids.push(nearestMidiForPC(pc, targets[i]));
+  }
+
+  return [bass, ...mids].sort((a,b)=>a-b);
+}
+
+/***********************
+FX helpers
+***********************/
+function makeSoftRoom(ctx){
+  const inG = ctx.createGain();
+  const d = ctx.createDelay(0.25);
+  d.delayTime.value = 0.085;
+
+  const fb = ctx.createGain();
+  fb.gain.value = 0.18;
+
+  const lp = ctx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 3000;
+  lp.Q.value = 0.25;
+
+  inG.connect(d);
+  d.connect(lp);
+  lp.connect(fb);
+  fb.connect(d);
+
+  const wet = ctx.createGain();
+  wet.gain.value = 0.28;
+  lp.connect(wet);
+
+  return { in: inG, wet, nodes:[inG,d,fb,lp,wet] };
+}
+
+function makeCabinet(ctx){
+  const hp = ctx.createBiquadFilter();
+  hp.type = "highpass";
+  hp.frequency.value = 105;
+  hp.Q.value = 0.7;
+
+  const mid = ctx.createBiquadFilter();
+  mid.type = "peaking";
+  mid.frequency.value = 1450;
+  mid.Q.value = 0.9;
+  mid.gain.value = 2.0;
+
+  const lp = ctx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 4200;
+  lp.Q.value = 0.8;
+
+  hp.connect(mid);
+  mid.connect(lp);
+
+  return { in: hp, out: lp, nodes:[hp,mid,lp] };
+}
+
+function makeWaveshaper(ctx, drive=1.0){
+  const sh = ctx.createWaveShaper();
+  const n = 2048;
+  const curve = new Float32Array(n);
+  const k = clamp(drive, 0.2, 6.0);
+  for(let i=0;i<n;i++){
+    const x = (i/(n-1))*2 - 1;
+    curve[i] = Math.tanh(k * x);
+  }
+  sh.curve = curve;
+  sh.oversample = "4x";
+  return sh;
+}
+
+/***********************
+NEW ACOUSTIC STRING (SAFE)
+Noise-excited resonator (no feedback), filtered + warm body
+***********************/
+/***********************
+ACOUSTIC STRING (MOBILE-PROOF)
+Karplus–Strong pluck: noise burst -> delay+feedback loop -> damping -> body EQ
+This is extremely reliable on phones (no “silent acoustic”).
+***********************/
+/***********************
+ACOUSTIC (NO-FEEDBACK, MOBILE-SAFE)
+Noise-burst pluck + light pitched tone, shaped by body EQ.
+No delay feedback loops anywhere (prevents squeal/whine).
+***********************/
+function acousticPluckSafe(ctx, freq, durMs, vel=0.9){
+  const t0 = ctx.currentTime;
+  const dur = Math.max(0.10, durMs / 1000);
+  const f = clamp(freq, 70, 1400);
+  const v = clamp(vel, 0.15, 1.0);
+
+  // Main envelope
+  const env = ctx.createGain();
+  const peak = 0.38 * v;
+
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.exponentialRampToValueAtTime(peak, t0 + 0.006);
+  env.gain.setValueAtTime(peak * 0.78, t0 + 0.045);
+  // release
+  const rel = clamp(0.22 + dur * 0.50, 0.45, 2.20);
+  env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + rel);
+
+  // --- Noise burst (pluck)
+  const nLen = 0.012; // 12ms
+  const bs = Math.max(256, Math.floor(ctx.sampleRate * nLen));
+  const buf = ctx.createBuffer(1, bs, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<data.length;i++){
+    const fade = 1 - (i / data.length);
+    data[i] = (Math.random()*2 - 1) * fade;
+  }
+  const ns = ctx.createBufferSource();
+  ns.buffer = buf;
+
+  const nGain = ctx.createGain();
+  nGain.gain.setValueAtTime(0.0001, t0);
+  nGain.gain.exponentialRampToValueAtTime(0.65 * v, t0 + 0.002);
+  nGain.gain.exponentialRampToValueAtTime(0.0001, t0 + nLen);
+
+  // “String” bandpass (focuses the noise into a pitched pluck)
+  const bp1 = ctx.createBiquadFilter();
+  bp1.type = "bandpass";
+  bp1.frequency.setValueAtTime(f, t0);
+  bp1.Q.value = 10;
+
+  // A little brightness from a higher band (still safe)
+  const bp2 = ctx.createBiquadFilter();
+  bp2.type = "bandpass";
+  bp2.frequency.setValueAtTime(clamp(f * 2.0, 180, 4200), t0);
+  bp2.Q.value = 6;
+
+  const noiseMix = ctx.createGain();
+  noiseMix.gain.value = 0.55;
+
+  ns.connect(nGain);
+  nGain.connect(bp1);
+  nGain.connect(bp2);
+  bp1.connect(noiseMix);
+  bp2.connect(noiseMix);
+
+  // --- Tiny pitched tone (adds definition, decays fast)
+  const o = ctx.createOscillator();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(f, t0);
+  o.detune.value = (Math.random()*2-1) * 4;
+
+  const oGain = ctx.createGain();
+  oGain.gain.setValueAtTime(0.0001, t0);
+  oGain.gain.exponentialRampToValueAtTime(0.10 * v, t0 + 0.006);
+  oGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+
+  o.connect(oGain);
+
+  // --- Body shaping (warmth + tame top)
+// --- Body shaping (PHONE SPEAKER FRIENDLY)
+const hp = ctx.createBiquadFilter();
+hp.type = "highpass";
+// push up the highpass so tiny speakers don't waste energy on sub lows
+hp.frequency.value = 150;
+hp.Q.value = 0.7;
+
+// reduce the boomy body bump a bit
+const body = ctx.createBiquadFilter();
+body.type = "peaking";
+body.frequency.value = 260;
+body.Q.value = 0.9;
+body.gain.value = 1.4;
+
+// add presence so it cuts on phone speaker
+const presence = ctx.createBiquadFilter();
+presence.type = "peaking";
+presence.frequency.value = 2400;
+presence.Q.value = 0.9;
+presence.gain.value = 5.0;
+
+// tame any harshness
+const notch = ctx.createBiquadFilter();
+notch.type = "notch";
+notch.frequency.value = 3200;
+notch.Q.value = 2.0;
+
+// let a bit more top through
+const lp = ctx.createBiquadFilter();
+lp.type = "lowpass";
+lp.frequency.value = 6800;
+lp.Q.value = 0.7;
+
+
+  // route: (noiseMix + oGain) -> env -> EQ chain -> lp (returned out)
+  const sum = ctx.createGain();
+  sum.gain.value = 1.0;
+
+  noiseMix.connect(sum);
+  oGain.connect(sum);
+
+  sum.connect(env);
+ env.connect(hp);
+hp.connect(body);
+body.connect(presence);
+presence.connect(notch);
+notch.connect(lp);
+// makeup gain so phone speakers can actually hear it
+const makeup = ctx.createGain();
+makeup.gain.value = 2.2;
+lp.connect(makeup);
+
+
+  // start/stop
+  ns.start(t0);
+  ns.stop(t0 + nLen + 0.02);
+
+  o.start(t0);
+  o.stop(t0 + dur + rel + 0.10);
+
+ scheduleCleanup([ns,nGain,bp1,bp2,noiseMix,o,oGain,sum,env,hp,body,presence,notch,lp,makeup], (durMs + rel*1000 + 1200));
+return { out: makeup, nodes:[ns,nGain,bp1,bp2,noiseMix,o,oGain,sum,env,hp,body,presence,notch,lp,makeup] };
+
+}
+
+
+
+/***********************
+PIANO NOTE (make "_" ties hold LONGER)
+***********************/
+function pianoNote(ctx, freq, durMs, vel=0.9){
+  const t0 = ctx.currentTime;
+  const dur = Math.max(0.12, durMs/1000);
+
+  const out = ctx.createGain();
+  const peak = 0.18 * clamp(vel, 0.2, 1.0);
+
+  out.gain.setValueAtTime(0.0001, t0);
+  out.gain.exponentialRampToValueAtTime(peak, t0 + 0.008);
+
+  const hold = Math.min(0.34, 0.07 + dur * 0.22);
+  out.gain.setValueAtTime(peak * 0.92, t0 + hold);
+
+  const endTime = t0 + dur;
+  out.gain.setValueAtTime(peak * 0.85, endTime);
+
+  const longFactor = clamp((dur - 0.8) / 2.6, 0, 1);
+  const tail = clamp(1.2 + dur * 1.05 + longFactor * 3.1, 1.4, 9.0);
+  out.gain.exponentialRampToValueAtTime(0.0001, endTime + tail);
+
+  const nodes = [out];
+
+  const partials = [
+    {h:1, a:1.00},
+    {h:2, a:0.32},
+    {h:3, a:0.18},
+    {h:4, a:0.10},
+    {h:5, a:0.06}
+  ];
+
+  for(const p of partials){
     const o = ctx.createOscillator();
     const g = ctx.createGain();
 
-    o.type = type;
-    o.frequency.value = freq;
+    const inharm = 1 + (p.h>=3 ? 0.0018 : 0.0008);
+    o.type = "sine";
+    o.frequency.value = freq * p.h * inharm;
+    o.detune.value = (Math.random()*2-1) * 5;
 
+    const a = (0.16 * clamp(vel,0.2,1.0)) * p.a;
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
+    g.gain.exponentialRampToValueAtTime(a, t0 + 0.006);
+    g.gain.setValueAtTime(a * 0.70, endTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, endTime + Math.min(9.0, tail));
 
-    o.connect(g); g.connect(ctx.destination);
+    o.connect(g);
+    g.connect(out);
+
     o.start(t0);
-    o.stop(t0 + ms/1000 + 0.02);
+    o.stop(endTime + Math.min(9.2, tail) + 0.15);
+
+    nodes.push(o,g);
   }
 
-  function noise(ms=40, gain=0.08){
-    const ctx = ensureCtx();
-    const bufferSize = Math.max(256, Math.floor(ctx.sampleRate * (ms/1000)));
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for(let i=0;i<data.length;i++) data[i] = (Math.random()*2-1);
-
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-
-    const g = ctx.createGain();
-    const t0 = ctx.currentTime;
-    g.gain.setValueAtTime(gain, t0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
-
-    src.connect(g); g.connect(ctx.destination);
-    src.start();
+  // hammer noise
+  const nLen = 0.018;
+  const bufferSize = Math.max(256, Math.floor(ctx.sampleRate * nLen));
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<data.length;i++){
+    data[i] = (Math.random()*2-1) * (1 - i/data.length);
   }
+  const ns = ctx.createBufferSource();
+  ns.buffer = buffer;
 
-  function drumHit(kind){
-    if(kind === "kick") pluck(70, 120, 0.16, "sine");
-    if(kind === "snare"){ noise(60, 0.10); pluck(180, 70, 0.05, "square"); }
-    if(kind === "hat"){ noise(25, 0.05); }
+  const nf = ctx.createBiquadFilter();
+  nf.type = "highpass";
+  nf.frequency.value = 900;
+  nf.Q.value = 0.7;
+
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0.0001, t0);
+  ng.gain.exponentialRampToValueAtTime(0.07 * clamp(vel,0.2,1.0), t0 + 0.002);
+  ng.gain.exponentialRampToValueAtTime(0.0001, t0 + nLen);
+
+  ns.connect(nf);
+  nf.connect(ng);
+  ng.connect(out);
+
+  ns.start(t0);
+  ns.stop(t0 + nLen + 0.01);
+
+  nodes.push(ns,nf,ng);
+
+  // soundboard/body EQ
+  const body = ctx.createBiquadFilter();
+  body.type = "peaking";
+  body.frequency.value = 280;
+  body.Q.value = 0.8;
+  body.gain.value = 2.0;
+
+  out.connect(body);
+
+  scheduleCleanup([...nodes, body], (durMs + (tail*1000) + 1200));
+  return { out: body, nodes:[...nodes, body] };
+}
+
+/***********************
+NEW ELECTRIC (SAFE)
+Triangle+saw blend -> lowpass -> light drive -> cabinet -> notch -> envelope
+No harsh “constant squeal” peaks.
+***********************/
+function electricGuitarSafe(ctx, freq, durMs, vel=0.85){
+  const t0 = ctx.currentTime;
+  const dur = Math.max(0.08, durMs/1000);
+
+  const pre = ctx.createGain();
+  pre.gain.value = 1.0;
+
+  const o1 = ctx.createOscillator();
+  o1.type = "sawtooth";
+  o1.frequency.value = clamp(freq, 70, 1600);
+  o1.detune.value = (Math.random()*2-1) * 3;
+
+  const o2 = ctx.createOscillator();
+  o2.type = "triangle";
+  o2.frequency.value = clamp(freq, 70, 1600);
+  o2.detune.value = 7 + (Math.random()*2-1) * 3;
+
+  const g1 = ctx.createGain(); g1.gain.value = 0.60;
+  const g2 = ctx.createGain(); g2.gain.value = 0.40;
+
+  // pick click (short noise)
+  const pickLen = 0.010;
+  const bs = Math.max(256, Math.floor(ctx.sampleRate * pickLen));
+  const b = ctx.createBuffer(1, bs, ctx.sampleRate);
+  const d = b.getChannelData(0);
+  for(let i=0;i<d.length;i++){
+    d[i] = (Math.random()*2-1) * (1 - i/d.length);
   }
+  const pick = ctx.createBufferSource();
+  pick.buffer = b;
 
-  /***********************
-   * NOTE / ACCIDENTAL PARSER (FIXED)
-   * Accepts: Bb, bb, B♭, C#, C♯, Db, D♭, etc.
-   * Also tolerates extra junk after the note (ex: "Bbmaj7" -> "Bb")
-   ***********************/
-  function parseNoteToken(v){
-    const s0 = String(v||"").trim();
-    if(!s0) return null;
+  const pickBP = ctx.createBiquadFilter();
+  pickBP.type = "bandpass";
+  pickBP.frequency.value = 1800;
+  pickBP.Q.value = 1.2;
 
-    // normalize unicode accidentals to ASCII
-    const s = s0
-      .replace(/♯/g, "#")
-      .replace(/♭/g, "b")
-      .trim();
+  const pickG = ctx.createGain();
+  pickG.gain.setValueAtTime(0.0001, t0);
+  pickG.gain.exponentialRampToValueAtTime(0.04 * clamp(vel,0.2,1.0), t0 + 0.002);
+  pickG.gain.exponentialRampToValueAtTime(0.0001, t0 + pickLen);
 
-    // match leading note + optional accidental, ignore the rest
-    const m = s.match(/^([A-Ga-g])\s*([#b])?/);
-    if(!m) return null;
+  // fizz control
+  const lp1 = ctx.createBiquadFilter();
+  lp1.type = "lowpass";
+  lp1.frequency.value = 3600;
+  lp1.Q.value = 0.8;
 
-    const letter = m[1].toUpperCase();
-    const acc = (m[2] || "").toLowerCase(); // "#" or "b" or ""
+  const sh = makeWaveshaper(ctx, 1.9);
 
-    // canonical key for maps:
-    // flats as "DB" etc to match your existing mapping style
-    const key =
-      acc === "#"
-        ? (letter + "#")
-        : acc === "b"
-          ? (letter + "B")
-          : letter;
+  const cab = makeCabinet(ctx);
 
-    return { key, letter, acc }; // key used for maps, acc is "#" or "b" or ""
-  }
+  // anti-squeal notch
+  const notch = ctx.createBiquadFilter();
+  notch.type = "notch";
+  notch.frequency.value = 3200;
+  notch.Q.value = 2.0;
 
-  /***********************
-   * NOTE PARSER for blue boxes
-   ***********************/
-  const NOTE_TO_FREQ = {
-    "C":261.63,"C#":277.18,"DB":277.18,
-    "D":293.66,"D#":311.13,"EB":311.13,
-    "E":329.63,
-    "F":349.23,"F#":369.99,"GB":369.99,
-    "G":392.00,"G#":415.30,"AB":415.30,
-    "A":440.00,"A#":466.16,"BB":466.16,
-    "B":493.88
+  // envelope at the end
+  const env = ctx.createGain();
+  const peak = 0.18 * clamp(vel, 0.2, 1.0);
+
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.exponentialRampToValueAtTime(peak, t0 + 0.006);
+  env.gain.setValueAtTime(peak * 0.86, t0 + 0.06);
+
+  const rel = clamp(0.12 + dur*0.18, 0.22, 1.0);
+  env.gain.setValueAtTime(peak * 0.78, t0 + Math.max(0.05, dur - rel));
+  env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+  // route
+  o1.connect(g1); g1.connect(pre);
+  o2.connect(g2); g2.connect(pre);
+
+  pick.connect(pickBP);
+  pickBP.connect(pickG);
+  pickG.connect(pre);
+
+  pre.connect(lp1);
+  lp1.connect(sh);
+  sh.connect(cab.in);
+  cab.out.connect(notch);
+  notch.connect(env);
+
+  o1.start(t0);
+  o2.start(t0);
+
+  pick.start(t0);
+  pick.stop(t0 + pickLen + 0.01);
+
+  const stopAt = t0 + dur + 0.10;
+  o1.stop(stopAt);
+  o2.stop(stopAt);
+
+  scheduleCleanup([pre,o1,o2,g1,g2,pick,pickBP,pickG,lp1,sh,notch,env, ...cab.nodes], durMs + 1200);
+  return { out: env, nodes:[pre,o1,o2,g1,g2,pick,pickBP,pickG,lp1,sh,notch,env, ...cab.nodes] };
+}
+
+/***********************
+CHORD PLAYERS
+***********************/
+function playSingleNoteForInstrument(rawChord, durMs){
+  const ch0 = parseChordToken(rawChord);
+  if(!ch0) return;
+
+  const capo = (state.capo|0) % 12;
+  const ch = {
+    ...ch0,
+    rootPC: (ch0.rootPC + capo + 12) % 12,
+    bassPC: (ch0.bassPC === null) ? null : ((ch0.bassPC + capo + 12) % 12)
   };
 
-  function noteCellToFreq(v){
-    const p = parseNoteToken(v);
-    if(!p) return null;
-    return NOTE_TO_FREQ[p.key] ?? null;
+  const ctx = ensureCtx();
+
+  // pick a mid/upper note so phone speakers hear it
+  let freqs = [];
+  if(state.instrument === "piano") freqs = buildPianoVoicing(ch).map(midiToFreq);
+  else freqs = buildGuitarStrumVoicing(ch).map(midiToFreq);
+
+  const f = freqs[Math.min(freqs.length-1, 3)] || freqs[0] || 440;
+
+  if(state.instrument === "acoustic"){
+    const n = acousticPluckSafe(ctx, f, durMs, 0.95);
+    n.out.connect(getOutNode());
+    scheduleCleanup(n.nodes, durMs + 2200);
+  }else if(state.instrument === "electric"){
+    const n = electricGuitarSafe(ctx, f, durMs, 0.90);
+    n.out.connect(getOutNode());
+    scheduleCleanup([n.out], durMs + 1400);
+  }else{
+    const n = pianoNote(ctx, f, durMs, 0.95);
+    n.out.connect(getOutNode());
+    scheduleCleanup([n.out], durMs + 6000);
+  }
+}
+
+  function playAcousticChord(ch, durMs){
+  const ctx = ensureCtx();
+  const token = state.audioToken;
+
+  // softer overall (prevents harshness on phones)
+  const bus = ctx.createGain();
+  bus.gain.value = 1.25;
+
+  // small “air” delay (NO FEEDBACK)
+  const dly = ctx.createDelay(0.25);
+  dly.delayTime.value = 0.065;
+
+  const dlyGain = ctx.createGain();
+  dlyGain.gain.value = 0.10;
+
+  // dry + delay to output
+  bus.connect(getOutNode());
+  bus.connect(dly);
+  dly.connect(dlyGain);
+  dlyGain.connect(getOutNode());
+
+  // strum
+  const midi = buildGuitarStrumVoicing(ch);
+  const freqs = midi.map(midiToFreq);
+
+  const bpm = clamp(state.bpm||95, 40, 220);
+  const strumMs = clamp(Math.round(24_000 / bpm), 12, 28);
+
+  for(let i=0;i<freqs.length;i++){
+    const f = freqs[i];
+    const delayMs = i * strumMs;
+
+    setTimeout(() => {
+      if(token !== state.audioToken) return;
+      if(!state.instrumentOn) return;
+
+      const vel = clamp(0.95 - i*0.10, 0.55, 0.98);
+      const n = acousticPluckSafe(ctx, f, durMs, vel);
+      n.out.connect(bus);
+      scheduleCleanup(n.nodes, durMs + 2200);
+    }, delayMs);
   }
 
-  /***********************
-   * Transpose display
-   ***********************/
-  const NOTE_TO_PC = {
-    "C":0,"C#":1,"DB":1,"D":2,"D#":3,"EB":3,"E":4,"F":5,"F#":6,"GB":6,"G":7,"G#":8,"AB":8,"A":9,"A#":10,"BB":10,"B":11
+  scheduleCleanup([bus,dly,dlyGain], durMs + 2600);
+}
+
+
+
+function playElectricChord(ch, durMs){
+  const ctx = ensureCtx();
+  const token = state.audioToken;
+
+  const room = makeSoftRoom(ctx);
+  const wet = ctx.createGain(); wet.gain.value = 0.10;
+  room.wet.connect(wet);
+  wet.connect(getOutNode());
+
+  const dryBus = ctx.createGain();
+  dryBus.gain.value = 0.92;
+  dryBus.connect(getOutNode());
+  dryBus.connect(room.in);
+
+  const midi = buildGuitarStrumVoicing(ch);
+  const freqs = midi.map(midiToFreq);
+
+  const bpm = clamp(state.bpm||95, 40, 220);
+  const strumMs = clamp(Math.round(20_000 / bpm), 10, 22);
+
+  for(let i=0;i<freqs.length;i++){
+    const f = freqs[i];
+    const delayMs = i * strumMs;
+
+    setTimeout(() => {
+      if(token !== state.audioToken) return;
+      if(!state.instrumentOn) return;
+      const vel = clamp(0.95 - i*0.08, 0.55, 0.98);
+      const n = electricGuitarSafe(ctx, f, durMs, vel);
+      n.out.connect(dryBus);
+      scheduleCleanup([n.out], durMs + 1100);
+    }, delayMs);
+  }
+
+  scheduleCleanup([dryBus,wet, ...room.nodes], durMs + 2200);
+}
+
+function playPianoChord(ch, durMs){
+  const ctx = ensureCtx();
+  const room = makeSoftRoom(ctx);
+
+  const dryBus = ctx.createGain();
+  dryBus.gain.value = 0.95;
+
+  const wet = ctx.createGain();
+  wet.gain.value = 0.26;
+
+  dryBus.connect(getOutNode());
+  dryBus.connect(room.in);
+  room.wet.connect(wet);
+  wet.connect(getOutNode());
+
+  const midi = buildPianoVoicing(ch);
+  const freqs = midi.map(midiToFreq);
+
+  const bpm = clamp(state.bpm||95, 40, 220);
+  const rollMs = clamp(Math.round(16_000 / bpm), 6, 18);
+
+  for(let i=0;i<freqs.length;i++){
+    const f = freqs[i];
+    const delayMs = i * rollMs;
+
+    setTimeout(() => {
+      const vel = clamp(0.90 - i*0.06, 0.55, 0.98);
+      const n = pianoNote(ctx, f, durMs, vel);
+      n.out.connect(dryBus);
+      scheduleCleanup([n.out], durMs + 11_000);
+    }, delayMs);
+  }
+
+  scheduleCleanup([dryBus,wet, ...room.nodes], durMs + 12_000);
+}
+
+function playChordForInstrument(rawChord, durMs){
+  const ch0 = parseChordToken(rawChord);
+  if(!ch0) return;
+
+  const capo = (state.capo|0) % 12;
+  const ch = {
+    ...ch0,
+    rootPC: (ch0.rootPC + capo + 12) % 12,
+    bassPC: (ch0.bassPC === null) ? null : ((ch0.bassPC + capo + 12) % 12)
   };
-  const PC_TO_NAME = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
-  function noteToPC(n){
-    const p = parseNoteToken(n);
-    if(!p) return null;
-    return NOTE_TO_PC[p.key] ?? null;
+  if(state.instrument === "acoustic") playAcousticChord(ch, durMs);
+  else if(state.instrument === "electric") playElectricChord(ch, durMs);
+  else playPianoChord(ch, durMs);
+}
+
+/***********************
+Transpose display (now chord-aware)
+***********************/
+function refreshDisplayedNoteCells(){
+  const root = el.sheetBody;
+  if(!root) return;
+  const active = document.activeElement;
+
+  root.querySelectorAll("input.noteCell").forEach(inp => {
+    if(inp === active) return;
+    const raw = String(inp.dataset.raw || "").trim();
+    inp.value = (state.capo ? transposeChordName(raw, state.capo) : raw);
+  });
+}
+
+/***********************
+ACTIVE CARD selection
+***********************/
+
+function getHeaderBottomY(){
+  const hdr = document.querySelector("header");
+  if(!hdr) return 86;
+  const r = hdr.getBoundingClientRect();
+  return Math.max(0, Math.min(window.innerHeight, r.bottom)) + 8;
+}
+
+function getCards(){
+  return Array.from(el.sheetBody.querySelectorAll(".card"));
+}
+
+function getNearestVisibleCard(){
+  const cards = getCards();
+  if(cards.length === 0) return null;
+
+  const yLine = getHeaderBottomY();
+  let best = null;
+  let bestDist = Infinity;
+
+  for(const c of cards){
+    const r = c.getBoundingClientRect();
+    if(r.bottom < yLine || r.top > window.innerHeight) continue;
+    const dist = Math.abs(r.top - yLine);
+    if(dist < bestDist){
+      bestDist = dist;
+      best = c;
+    }
+  }
+  return best || cards[0];
+}
+
+/**
+ * Choose the card the play-line is actually on.
+ * Adds tolerance so we DON'T accidentally pick card #2 when card #1 is slightly under header.
+ */
+function getCardAtPlayLine(){
+  const cards = getCards();
+  if(cards.length === 0) return null;
+
+  const yLine = getHeaderBottomY();
+  const tol = 24;
+
+  for(const c of cards){
+    const r = c.getBoundingClientRect();
+    if(r.top <= (yLine + tol) && r.bottom > (yLine - tol)) return c;
   }
 
-  function transposeNoteName(note, semitones){
-    const pc = noteToPC(note);
-    if(pc === null) return String(note||"").trim();
-    const t = ((pc + (semitones|0)) % 12 + 12) % 12;
-    return PC_TO_NAME[t]; // display uses sharps (clean + consistent)
+  return getNearestVisibleCard() || cards[0];
+}
+
+/**
+ * The card that playback should use.
+ * - If auto-scroll ON: lock to playCardIndex
+ * - If auto-scroll OFF: follow lastActiveCardEl
+ */
+function getPlaybackCard(){
+  if(state.currentSection === "Full") return null;
+
+  const cards = getCards();
+  if(cards.length === 0) return null;
+
+  if(state.autoScrollOn){
+    if(
+      state.playCardIndex === null ||
+      state.playCardIndex < 0 ||
+      state.playCardIndex >= cards.length
+    ){
+      const cur = getCardAtPlayLine() || cards[0];
+      state.playCardIndex = Math.max(0, cards.indexOf(cur));
+    }
+    return cards[state.playCardIndex] || cards[0];
   }
 
-  function instWave(){
-    if(state.instrument === "electric") return "sawtooth";
-    if(state.instrument === "acoustic") return "triangle";
-    return "sine";
+  if(lastActiveCardEl && document.contains(lastActiveCardEl)){
+    return lastActiveCardEl;
   }
 
-  /***********************
-   * Capo refresh helper
-   ***********************/
-  function refreshDisplayedNoteCells(){
-    const root = el.sheetBody;
-    if(!root) return;
-    const active = document.activeElement;
+  return getNearestVisibleCard() || cards[0];
+}
 
-    root.querySelectorAll("input.noteCell").forEach(inp => {
-      if(inp === active) return; // don't overwrite while editing
-      const raw = String(inp.dataset.raw || "").trim();
-      inp.value = (state.capo ? transposeNoteName(raw, state.capo) : raw);
-    });
+/***********************
+Tie utilities (across cards)
+***********************/
+function getNoteRawFromCell(cell){
+  if(!cell) return "";
+  return String(cell.dataset?.raw || cell.value || "").trim();
+}
+function isDotsToken(s){
+  const t = String(s || "").trim();
+  return (t === "..." || t === "…");
+}
+function isRepeatToken(s){
+  const t = String(s || "").trim();
+  return (t === "_");
+}
+function isTieToken(s){
+  return isDotsToken(s) || isRepeatToken(s);
+}
+
+function findNextNoteForwardFrom(cardEl, startCellIndexPlus1){
+  const cards = getCards();
+  if(cards.length === 0) return null;
+  const startCardIdx = cards.indexOf(cardEl);
+  if(startCardIdx < 0) return null;
+
+  const MAX_BARS_SCAN = 6;
+  for(let barOffset = 0; barOffset <= MAX_BARS_SCAN; barOffset++){
+    const card = cards[startCardIdx + barOffset];
+    if(!card) break;
+    const cells = card.querySelectorAll(".noteCell");
+    const startIdx = (barOffset === 0) ? startCellIndexPlus1 : 0;
+    for(let j = startIdx; j < 8; j++){
+      const raw = getNoteRawFromCell(cells[j]);
+      if(raw) return { barsAhead: barOffset, cellIndex: j, raw };
+    }
+  }
+  return null;
+}
+
+/***********************
+NOTE DURATION (your rules)
+"eighth": 1/8
+"half"  : 4/8 (half-bar) OR next note OR end-of-bar
+"bar"   : tie-to-next across cards, else end-of-bar
+***********************/
+function computeNoteDurEighths(cardEl, cells, nIdx){
+  const mode = state.noteLenMode;
+
+  if(mode === "eighth") return 1;
+
+  // Find next NON-empty note cell in SAME bar
+  let next = -1;
+  for(let j=nIdx+1;j<8;j++){
+  const raw = getNoteRawFromCell(cells[j]);
+  if(!raw) continue;
+  if(isTieToken(raw)) continue;        // skip "_" and "..."
+  if(!parseChordToken(raw)) continue;  // skip random text
+  next = j;
+  break;
+}
+
+
+  if(mode === "half"){
+    const blockEnd = (nIdx < 4) ? 4 : 8;
+    if(next !== -1 && next < blockEnd){
+      return Math.max(1, next - nIdx);
+    }
+    return Math.max(1, blockEnd - nIdx);
   }
 
-  /***********************
-   * ACTIVE CARD selection
-   ***********************/
-  function getHeaderBottomY(){
-    const hdr = document.querySelector("header");
-    if(!hdr) return 86;
-    const r = hdr.getBoundingClientRect();
-    return Math.max(0, Math.min(window.innerHeight, r.bottom)) + 8;
+  // mode === "bar"
+  if(next !== -1){
+    return Math.max(1, next - nIdx);
   }
 
-  function getNearestVisibleCard(){
-    const cards = Array.from(el.sheetBody.querySelectorAll(".card"));
-    if(cards.length === 0) return null;
+  const forward = findNextNoteForwardFrom(cardEl, nIdx + 1);
+  if(forward){
+    const toEndThisBar = 8 - nIdx;
+    const fullBarsBetween = Math.max(0, forward.barsAhead - 1) * 8;
+    const intoThatBar = (forward.barsAhead >= 1) ? forward.cellIndex : 0;
+    const dur = toEndThisBar + fullBarsBetween + intoThatBar;
+    return Math.max(1, dur);
+  }
 
-    const yLine = getHeaderBottomY();
-    let best = null;
-    let bestDist = Infinity;
+  return Math.max(1, 8 - nIdx);
+}
 
-    for(const c of cards){
-      const r = c.getBoundingClientRect();
-      if(r.bottom < yLine || r.top > window.innerHeight) continue;
-      const dist = Math.abs(r.top - yLine);
-      if(dist < bestDist){
-        bestDist = dist;
-        best = c;
+/***********************
+Instrument playback (CHORD-AWARE)
+***********************/
+function playInstrumentStep(){
+  if(!state.instrumentOn) return;
+  if(state.currentSection === "Full") return;
+
+  const card = getPlaybackCard();
+  if(!card) return;
+
+  const nIdx = state.tick8 % 8;
+  const cells = card.querySelectorAll(".noteCell");
+  if(!cells[nIdx]) return;
+
+  const raw = getNoteRawFromCell(cells[nIdx]);
+  if(!raw) return;
+
+  const eighthMs = Math.max(80, (state.eighthMs || 300));
+
+  // "..." = single pluck note using LAST chord
+  if(isDotsToken(raw)){
+    if(state.lastChordRaw && parseChordToken(state.lastChordRaw)){
+      playSingleNoteForInstrument(state.lastChordRaw, eighthMs);
+    }
+    return;
+  }
+
+  // "_" = repeat strum using LAST chord
+  if(isRepeatToken(raw)){
+    if(state.lastChordRaw && parseChordToken(state.lastChordRaw)){
+      playChordForInstrument(state.lastChordRaw, eighthMs);
+    }
+    return;
+  }
+
+  // default chord cell = normal strum
+  if(!parseChordToken(raw)) return;
+
+  state.lastChordRaw = raw; // remember it for "_" and "..."
+
+  const durEighths = computeNoteDurEighths(card, cells, nIdx);
+  const durMs = Math.max(80, durEighths * (state.eighthMs || 300));
+
+  playChordForInstrument(raw, durMs);
+}
+
+
+/***********************
+AutoScroll
+***********************/
+  // ---------- AutoScroll: skip blanks + page (section) advance ----------
+
+const AUTO_SECTIONS = SECTIONS.filter(s => s !== "Full");
+
+function nextAutoSectionName(cur){
+  const i = AUTO_SECTIONS.indexOf(cur);
+  if(i === -1) return "VERSE 1";
+  return AUTO_SECTIONS[(i + 1) % AUTO_SECTIONS.length];
+}
+
+// A "blank card" = NO lyrics AND ALL note cells empty
+function cardIsBlank(card){
+  if(!card) return true;
+
+  const lyr = card.querySelector("textarea.lyrics");
+  const hasLyrics = !!(lyr && String(lyr.value || "").trim());
+
+  const noteCells = card.querySelectorAll("input.noteCell");
+  let hasNotes = false;
+  noteCells.forEach(inp => {
+    const raw = String(inp?.dataset?.raw ?? inp?.value ?? "").trim();
+    if(raw) hasNotes = true;
+  });
+
+  return !(hasLyrics || hasNotes);
+}
+
+function firstNonBlankCardIndexInDOM(){
+  const cards = getCards();
+  for(let i=0;i<cards.length;i++){
+    if(!cardIsBlank(cards[i])) return i;
+  }
+  return null;
+}
+
+function nextNonBlankCardIndexAfter(currentIdx){
+  const cards = getCards();
+  for(let i=(currentIdx+1); i<cards.length; i++){
+    if(!cardIsBlank(cards[i])) return i;
+  }
+  return null; // none after in this section
+}
+
+// Check project DATA (not DOM) so we can decide next section without rendering
+function lineHasContent(line){
+  if(!line || typeof line !== "object") return false;
+  const lyr = String(line.lyrics || "").trim();
+  if(lyr) return true;
+
+  const notes = Array.isArray(line.notes) ? line.notes : [];
+  for(const n of notes){
+    if(String(n || "").trim()) return true;
+  }
+  return false;
+}
+
+function firstContentLineIndexInSection(sec){
+  const arr = (state.project && state.project.sections && state.project.sections[sec]) ? state.project.sections[sec] : [];
+  for(let i=0;i<arr.length;i++){
+    if(lineHasContent(arr[i])) return i;
+  }
+  return null;
+}
+
+function switchToSectionForAuto(sec){
+  // switch tab + rerender, but do NOT kill clock
+  state.currentSection = sec;
+  state.playCardIndex = null;
+
+  renderTabs();
+  renderSheet();
+  clearTick();
+  applyTick();
+
+  lastActiveCardEl = null;
+  lastLyricsTextarea = null;
+  refreshRhymesFromActive();
+  refreshDisplayedNoteCells();
+}
+
+function scrollCardIntoView(card){
+  if(!card) return;
+
+  // scroll so the card sits just UNDER the header, not behind it
+  const yLine = getHeaderBottomY(); // already includes +8 padding
+  const r = card.getBoundingClientRect();
+
+  // where the card's top currently is in document space
+  const cardTopDoc = r.top + window.scrollY;
+
+  // target top = cardTopDoc - headerBottom
+  const targetY = Math.max(0, Math.round(cardTopDoc - yLine));
+
+  try{
+    window.scrollTo({ top: targetY, behavior: "auto" });
+  }catch{
+    window.scrollTo(0, targetY);
+  }
+}
+
+
+function autoAdvanceOnBar(){
+  if(!state.autoScrollOn) return;
+  if(state.currentSection === "Full") return;
+
+  // only on bar boundary (every 8 eighth-notes)
+  if(state.tick8 === 0) return;
+  if(state.tick8 % 8 !== 0) return;
+
+  const bar = Math.floor(state.tick8 / 8);
+  if(state.lastAutoBar === bar) return;
+  state.lastAutoBar = bar;
+
+  // --- 1) Try next non-blank card in CURRENT section (DOM)
+  let cards = getCards();
+  if(cards.length === 0) return;
+
+  // Ensure playCardIndex is sane
+  if(state.playCardIndex === null || state.playCardIndex < 0 || state.playCardIndex >= cards.length){
+    const cur = getCardAtPlayLine() || getNearestVisibleCard() || cards[0];
+    state.playCardIndex = Math.max(0, cards.indexOf(cur));
+  }
+
+  // If current card is blank, jump to first non-blank in this section
+  if(cards[state.playCardIndex] && cardIsBlank(cards[state.playCardIndex])){
+    const firstIdx = firstNonBlankCardIndexInDOM();
+    if(firstIdx !== null){
+      state.playCardIndex = firstIdx;
+      const next = cards[state.playCardIndex];
+      lastActiveCardEl = next;
+      scrollCardIntoView(next);
+      return;
+    }
+    // no content in this section at all -> go to next section with content
+  }else{
+    const nextIdx = nextNonBlankCardIndexAfter(state.playCardIndex);
+    if(nextIdx !== null){
+      state.playCardIndex = nextIdx;
+      const next = cards[state.playCardIndex];
+      lastActiveCardEl = next;
+      scrollCardIntoView(next);
+      return;
+    }
+    // else: we've reached the end of content in this section -> advance section
+  }
+
+  // --- 2) Advance to next SECTION ("page to the right"), loop back to VERSE 1
+  // Find next section (cyclic) that has any content
+  let sec = nextAutoSectionName(state.currentSection);
+  const startSec = sec;
+
+  let foundSec = null;
+  let foundIdx = null;
+
+  while(true){
+    const idx = firstContentLineIndexInSection(sec);
+    if(idx !== null){
+      foundSec = sec;
+      foundIdx = idx;
+      break;
+    }
+    sec = nextAutoSectionName(sec);
+    if(sec === startSec) break; // scanned all
+  }
+
+  if(foundSec === null){
+    // nothing anywhere — stay put
+    return;
+  }
+
+  // Switch section + render, then scroll to first content card
+  switchToSectionForAuto(foundSec);
+
+  // after render, select the correct card index
+  cards = getCards();
+  state.playCardIndex = clamp(foundIdx, 0, Math.max(0, cards.length - 1));
+
+  // if for some reason that target card became blank in DOM (rare), fallback to first non-blank
+  if(cards[state.playCardIndex] && cardIsBlank(cards[state.playCardIndex])){
+    const firstIdx = firstNonBlankCardIndexInDOM();
+    if(firstIdx !== null) state.playCardIndex = firstIdx;
+  }
+
+  const next = cards[state.playCardIndex];
+  if(next && !cardIsBlank(next)){
+    lastActiveCardEl = next;
+    scrollCardIntoView(next);
+  }
+}
+
+
+
+/***********************
+DRUMS + CLOCK (decoupled)
+***********************/
+function stopBeatClock(){
+  if(state.beatTimer){
+    clearInterval(state.beatTimer);
+    state.beatTimer = null;
+  }
+  if(!state.audioSyncOn) clearTick();
+}
+
+
+function shouldClockRun(){
+  return !!(state.drumsOn || state.instrumentOn || state.autoScrollOn);
+}
+
+/***********************
+AUDIO SYNC CLOCK (MP3 is master)
+- Beat position comes from audio.currentTime
+- tick8 = floor( ( (t - offsetSec) * BPM / 60 ) * 2 )
+***********************/
+function audioSyncStopInternal(){
+  state.audioSyncOn = false;
+  // ✅ disconnect MP3-from-WebAudio routing
+  try{
+    if(state.audioSyncSource) state.audioSyncSource.disconnect();
+  }catch{}
+  try{
+    if(state.audioSyncGain) state.audioSyncGain.disconnect();
+  }catch{}
+  state.audioSyncSource = null;
+  state.audioSyncGain = null;
+
+  if(state.audioSyncRaf){
+    cancelAnimationFrame(state.audioSyncRaf);
+    state.audioSyncRaf = null;
+  }
+
+  try{
+    if(state.audioSyncAudio){
+      state.audioSyncAudio.pause();
+      state.audioSyncAudio.currentTime = 0;
+    }
+  }catch{}
+
+  if(state.audioSyncUrl){
+    try{ URL.revokeObjectURL(state.audioSyncUrl); }catch{}
+  }
+
+  state.audioSyncAudio = null;
+  state.audioSyncUrl = null;
+  state.audioSyncRecId = null;
+  state.lastAudioTick8 = -1;
+
+  clearTick();
+  if(el.nowPlaying) el.nowPlaying.textContent = "—";
+
+  // if nothing else running, stop internal clock too
+  updateClock();
+}
+
+function audioTickFromTimeSec(tSec){
+  const bpm = clamp(state.bpm || 95, 40, 220);
+  const rel = (tSec - (state.audioSyncOffsetSec || 0));
+  if(rel < 0) return -1;
+  const beatPos = (rel * bpm) / 60; // quarter-note beats
+  const tick8 = Math.floor(beatPos * 2); // 8th notes
+  return tick8;
+}
+
+function audioSyncFrame(){
+  if(!state.audioSyncOn || !state.audioSyncAudio) return;
+
+  const a = state.audioSyncAudio;
+  const t = a.currentTime || 0;
+
+  const tick8 = audioTickFromTimeSec(t);
+
+  if(tick8 !== state.lastAudioTick8){
+    state.lastAudioTick8 = tick8;
+    state.tick8 = Math.max(0, tick8);
+
+    // ✅ same UI pipeline as your internal clock
+    try{
+      autoAdvanceOnBar();
+
+      // only update tick highlight when allowed
+      if(shouldTickRun()){
+        clearTick();
+        applyTick();
+      }
+
+      // We do NOT force drums/instrument on here.
+      // If you want them to follow MP3 later, we can add that.
+    }catch(err){
+      console.error("Audio sync frame error:", err);
+    }
+  }
+
+  state.audioSyncRaf = requestAnimationFrame(audioSyncFrame);
+}
+
+
+function stopAudioSync(){
+  audioSyncStopInternal();
+}
+
+/***********************
+Tap BPM (sets project BPM from taps)
+***********************/
+function tapBpm(){
+  const t = performance.now();
+  state.tapTimes = (state.tapTimes || []).filter(x => (t - x) < 2500);
+  state.tapTimes.push(t);
+
+  if(state.tapTimes.length >= 4){
+    const first = state.tapTimes[0];
+    const last = state.tapTimes[state.tapTimes.length - 1];
+    const beats = state.tapTimes.length - 1;
+    const sec = (last - first) / 1000;
+    if(sec > 0.2){
+      const bpm = clamp(Math.round((beats * 60) / sec), 40, 220);
+      state.bpm = bpm;
+      if(el.bpmInput) el.bpmInput.value = String(bpm);
+      if(state.project){
+        state.project.bpm = bpm;
+        upsertProject(state.project);
       }
     }
-    return best || cards[0];
+    // keep last tap as new start (feels better)
+    state.tapTimes = [state.tapTimes[state.tapTimes.length - 1]];
+  }
+}
+
+/***********************
+Mark Beat 1 at current playback time (offset)
+- While audio playing, hit this exactly on beat 1.
+- Stores offsetSec into the rec in IndexedDB.
+***********************/
+async function markBeat1Now(){
+  if(!state.audioSyncOn || !state.audioSyncAudio || !state.audioSyncRecId) return;
+  const t = state.audioSyncAudio.currentTime || 0;
+  state.audioSyncOffsetSec = t;
+// ✅ Force immediate re-sync visual + tick baseline
+state.tick8 = 0;
+state.lastAudioTick8 = -1;
+clearTick();
+applyTick();
+
+  // save into the rec
+  try{
+    const all = await dbGetAll();
+    const rec = all.find(r => r.id === state.audioSyncRecId);
+    if(rec){
+      rec.offsetSec = t;
+      await dbPut(rec);
+      renderRecordings();
+    }
+  }catch{}
+}
+
+function startBeatClock(){
+
+  if(state.audioSyncOn) return;
+  stopBeatClock();
+  const bpm = clamp(state.bpm || 95, 40, 220);
+  const eighthMs = Math.round((60000 / bpm) / 2);
+  state.eighthMs = eighthMs;
+
+  state.tick8 = 0;
+  state.lastAutoBar = -1;
+  clearTick();
+
+ state.beatTimer = setInterval(() => {
+  try{
+    // move scroll FIRST at bar boundary so audio+screen match
+    autoAdvanceOnBar();
+
+    clearTick();
+    applyTick();
+
+    if(state.drumsOn && state.tick8 % 2 === 0) doBlink();
+
+    playInstrumentStep();
+
+    state.tick8++;
+  }catch(err){
+    console.error("Beat clock error:", err);
+    // keep clock alive even if audio fails
+    state.tick8++;
+  }
+}, eighthMs);
+
+
+}
+
+function updateClock(){
+  if(state.audioSyncOn){
+  stopBeatClock();
+  return;
+}
+  if(shouldClockRun()){
+    if(!state.beatTimer) startBeatClock();
+  }else{
+    stopBeatClock();
+  }
+}
+
+
+function stopDrums(){
+  if(state.drumTimer){
+    clearInterval(state.drumTimer);
+    state.drumTimer = null;
+  }
+  state.drumsOn = false;
+ updateClock();
+}
+
+function startDrums(){
+  stopDrums();
+  state.drumsOn = true;
+  updateClock();
+
+  const bpm = clamp(state.bpm || 95, 40, 220);
+  const stepMs = Math.round((60000 / bpm) / 4);
+  let step = 0;
+
+  state.drumTimer = setInterval(() => {
+    if(!state.drumsOn) return;
+    const s = step % 16;
+
+    if(state.drumStyle === "rap"){
+      if(s === 0 || s === 8) drumHit("kick");
+      if(s === 4 || s === 12) drumHit("snare");
+      drumHit("hat");
+    } else if(state.drumStyle === "rock"){
+      if(s === 0 || s === 8) drumHit("kick");
+      if(s === 4 || s === 12) drumHit("snare");
+      if(s % 2 === 0) drumHit("hat");
+    } else if(state.drumStyle === "hardrock"){
+      if(s === 4 || s === 12) drumHit("snare");
+      if(s === 0 || s === 3 || s === 6 || s === 8 || s === 11 || s === 14) drumHit("kick");
+      drumHit("hat");
+    } else {
+      if(s === 0 || s === 7 || s === 8) drumHit("kick");
+      if(s === 4 || s === 12) drumHit("snare");
+      if(s % 2 === 0) drumHit("hat");
+    }
+
+    step++;
+  }, stepMs);
+}
+
+function stopInstrument(){
+  state.instrumentOn = false;
+  state.audioToken++; // cancels pending strum timeouts
+  updateClock();
+}
+
+function startInstrument(){
+  state.instrumentOn = true;
+  ensureCtx();
+  state.audioToken++; // new generation
+  updateClock();
+}
+
+
+/***********************
+UI helpers
+***********************/
+function setActive(ids, activeId){
+  ids.forEach(id => {
+    const b = $(id);
+    if(!b) return;
+    b.classList.toggle("active", id === activeId);
+  });
+}
+
+function renderNoteLenUI(){
+  if(el.instDots) el.instDots.classList.toggle("active", state.noteLenMode === "eighth");
+  if(el.instTieBar) el.instTieBar.classList.toggle("active", state.noteLenMode === "bar");
+}
+
+function renderInstrumentUI(){
+  const map = { acoustic:"instAcoustic", electric:"instElectric", piano:"instPiano" };
+  const active = state.instrumentOn ? map[state.instrument] : null;
+  setActive(Object.values(map), active);
+  renderNoteLenUI();
+}
+
+function renderDrumUI(){
+  const map = { rock:"drumRock", hardrock:"drumHardRock", pop:"drumPop", rap:"drumRap" };
+  const mapMini = { rock:"mRock", hardrock:"mHardRock", pop:"mPop", rap:"mRap" };
+  const active = state.drumsOn ? map[state.drumStyle] : null;
+  setActive(Object.values(map), active);
+  const activeMini = state.drumsOn ? mapMini[state.drumStyle] : null;
+  setActive(Object.values(mapMini), activeMini);
+}
+
+function setAutoScroll(on){
+  state.autoScrollOn = !!on;
+  $("autoPlayBtn")?.classList.toggle("on", state.autoScrollOn);
+  $("mScrollBtn")?.classList.toggle("on", state.autoScrollOn);
+
+  if(state.autoScrollOn){
+    // If user is on Full, start from VERSE 1 automatically
+    if(state.currentSection === "Full"){
+      switchToSectionForAuto("VERSE 1");
+    }
+
+    // Try to anchor to the current playline card
+    const cards = getCards();
+    if(cards.length){
+      let cur = getCardAtPlayLine() || getNearestVisibleCard() || cards[0];
+      let idx = Math.max(0, cards.indexOf(cur));
+
+      // If current is blank, jump to first non-blank in this section
+      if(cardIsBlank(cards[idx])){
+        const firstIdx = firstNonBlankCardIndexInDOM();
+        if(firstIdx !== null) idx = firstIdx;
+      }
+
+      state.playCardIndex = idx;
+      const tgt = cards[state.playCardIndex];
+      if(tgt && !cardIsBlank(tgt)) scrollCardIntoView(tgt);
+    }else{
+    state.playCardIndex = null;
+    state.lastAutoBar = -1;
+
+    // If MP3 sync is playing, stop the highlight immediately when AutoScroll OFF
+    clearTick();
+    }
+
+  }else{
+    state.playCardIndex = null;
+  }
+}
+
+
+function setPanelHidden(hidden){
+  el.panelBody.classList.toggle("hidden", hidden);
+  el.togglePanelBtn.textContent = hidden ? "Show" : "Hide";
+  el.miniBar.classList.toggle("show", hidden);
+}
+
+function setRecordUI(){
+  // Mini bar stays as text
+  if(el.mRecordBtn) el.mRecordBtn.textContent = state.isRecording ? "Stop" : "Record";
+
+  // Big record button is ICON-ONLY (CSS draws dot/square)
+  if(el.recordBtn){
+  el.recordBtn.classList.toggle("recording", state.isRecording);
+  el.recordBtn.textContent = ""; // ✅ never overwrite icon
+    el.recordBtn.title = state.isRecording ? "Stop Recording" : "Record";
+    el.recordBtn.setAttribute("aria-label", el.recordBtn.title);
+  }
+}
+
+
+/***********************
+Tabs + editor
+***********************/
+function ensureSectionArray(sec){
+  if(sec === "Full") return [];
+  if(!state.project.sections[sec]) state.project.sections[sec] = [];
+  while(state.project.sections[sec].length < DEFAULT_LINES_PER_SECTION){
+    state.project.sections[sec].push(newLine());
+  }
+  return state.project.sections[sec];
+}
+
+function renderTabs(){
+  // ✅ Tabs are removed (Beat Sheet Pro style)
+  if(el.tabs){
+    el.tabs.innerHTML = "";
+    el.tabs.classList.add("hidden");
+  }
+}
+
+function countSyllablesInline(text){
+  const s = String(text||"").toLowerCase().replace(/[^a-z\s']/g," ").trim();
+  if(!s) return 0;
+  const words = s.split(/\s+/).filter(Boolean);
+  let total = 0;
+  for(const w0 of words){
+    let w = w0.replace(/'s$/,"").replace(/'$/,"");
+    if(!w) continue;
+    w = w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/,"");
+    w = w.replace(/^y/,"");
+    const m = w.match(/[aeiouy]{1,2}/g);
+    total += m ? m.length : 1;
+  }
+  return total;
+}
+
+/***********************
+AutoSplit
+***********************/
+function tokenizeWords(text){
+  return String(text||"")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+}
+function estimateSyllablesWord(w){
+  return Math.max(1, countSyllablesInline(w));
+}
+
+function autosplitBeatsFromLyrics(lyrics){
+  const words = tokenizeWords(lyrics);
+  if(words.length === 0) return ["","","",""];
+
+  const sylCounts = words.map(estimateSyllablesWord);
+  const totalSyl = sylCounts.reduce((a,b)=>a+b,0);
+  const target = Math.max(1, Math.ceil(totalSyl / 4));
+
+  const boxes = [[],[],[],[]];
+  let bi = 0;
+  let acc = 0;
+
+  for(let i=0;i<words.length;i++){
+    const w = words[i];
+    const s = sylCounts[i];
+
+    const remainingWords = words.length - i;
+    const remainingBoxes = 4 - bi;
+
+    if(bi < 3 && remainingWords === remainingBoxes && boxes[bi].length > 0){
+      bi++;
+      acc = 0;
+    }
+
+    if(bi < 3 && acc >= target && boxes[bi].length > 0){
+      bi++;
+      acc = 0;
+    }
+
+    boxes[bi].push(w);
+    acc += s;
   }
 
-  function getPlaybackCard(){
-    if(state.currentSection === "Full") return null;
-    if(state.autoScrollOn) return getNearestVisibleCard();
-    if(lastActiveCardEl && document.contains(lastActiveCardEl)) return lastActiveCardEl;
-    return getNearestVisibleCard();
+  return boxes.map(arr => arr.join(" ").trim());
+}
+
+/***********************
+Key display (uses chord roots)
+***********************/
+const MAJOR_PROFILE = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
+const MINOR_PROFILE = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+function dot(a,b){ let s=0; for(let i=0;i<12;i++) s += (a[i]||0) * (b[i]||0); return s; }
+function norm(v){ return Math.sqrt(v.reduce((a,x)=>a+(x*x),0)) || 1; }
+function rotate(arr, t){
+  const out = Array(12).fill(0);
+  for(let i=0;i<12;i++) out[(i+t)%12] = arr[i];
+  return out;
+}
+function keyFromHistogram(hist){
+  const hn = norm(hist);
+  let best = { score:-1e9, pc:0, mode:"maj" };
+  for(let t=0;t<12;t++){
+    const maj = rotate(MAJOR_PROFILE, t);
+    const min = rotate(MINOR_PROFILE, t);
+    const sMaj = dot(hist, maj)/hn/norm(maj);
+    const sMin = dot(hist, min)/hn/norm(min);
+    if(sMaj > best.score) best = { score:sMaj, pc:t, mode:"maj" };
+    if(sMin > best.score) best = { score:sMin, pc:t, mode:"min" };
   }
+  return best;
+}
 
-  /***********************
-   * Instrument playback (no double-transpose)
-   ***********************/
-  function playInstrumentStep(){
-    if(!state.instrumentOn) return;
-    if(state.currentSection === "Full") return;
+function updateKeyFromAllNotes(){
+  const hist = Array(12).fill(0);
+  SECTIONS.filter(s => s !== "Full").forEach(sec => {
+    (state.project.sections[sec] || []).forEach(line => {
+      (Array.isArray(line.notes) ? line.notes : []).forEach(tok => {
+        const pc = noteToPC(tok);
+        if(pc !== null) hist[pc] += 1;
+      });
+    });
+  });
 
-    const card = getPlaybackCard();
-    if(!card) return;
+  const k = keyFromHistogram(hist);
+  const transposedPC = (k.pc + (state.capo % 12) + 12) % 12;
+  el.keyOutput.value = `${PC_TO_NAME[transposedPC]} ${k.mode}`;
+}
 
-    const nIdx = state.tick8 % 8;
-    const cells = card.querySelectorAll(".noteCell");
-    if(!cells[nIdx]) return;
+/***********************
+Full preview helpers (chord-aware transpose)
+***********************/
+function safeTok(s){
+  const t = String(s ?? "").trim();
+  return t ? t : "-";
+}
+function beatTok(s){
+  return String(s ?? "").trim();
+}
 
-    // use RAW note, apply capo once
-    const rawNote = String(cells[nIdx].dataset.raw || cells[nIdx].value || "").trim();
-    const freq = noteCellToFreq(rawNote);
-    if(!freq) return;
+function buildAlignedLine(line, semis=0){
+  const notes = Array.isArray(line?.notes) ? line.notes : Array(8).fill("");
+  const beats = Array.isArray(line?.beats) ? line.beats : Array(4).fill("");
+  const lyric = String(line?.lyrics ?? "").trim();
 
-    const capoShift = Math.pow(2, (state.capo || 0) / 12);
-    pluck(freq * capoShift, 180, 0.09, instWave());
+  const n = Array.from({length:8}, (_,i)=>{
+    const raw = String(notes[i] ?? "").trim();
+    if(!raw) return "-";
+    return semis ? transposeChordName(raw, semis) : raw;
+  });
+
+  const b = Array.from({length:4}, (_,i)=> beatTok(beats[i] ?? ""));
+
+  const anyBeats = b.some(x => x.trim().length);
+  const beatRow = anyBeats ? b : (lyric ? autosplitBeatsFromLyrics(lyric) : ["","","",""]);
+
+  const noteGroups = [
+    `${safeTok(n[0])} ${safeTok(n[1])}`,
+    `${safeTok(n[2])} ${safeTok(n[3])}`,
+    `${safeTok(n[4])} ${safeTok(n[5])}`,
+    `${safeTok(n[6])} ${safeTok(n[7])}`
+  ];
+
+  const widths = [0,1,2,3].map(i => {
+    const w = Math.max(noteGroups[i].length, String(beatRow[i]||"").length);
+    return Math.max(6, w) + 2;
+  });
+
+  const pad = (s, w) => String(s||"").padEnd(w, " ");
+
+  const notesLine =
+    pad(noteGroups[0], widths[0]) + "| " +
+    pad(noteGroups[1], widths[1]) + "| " +
+    pad(noteGroups[2], widths[2]) + "| " +
+    pad(noteGroups[3], widths[3]);
+
+  const beatsLine =
+    pad(beatRow[0], widths[0]) + "| " +
+    pad(beatRow[1], widths[1]) + "| " +
+    pad(beatRow[2], widths[2]) + "| " +
+    pad(beatRow[3], widths[3]);
+
+  return { notesLine: notesLine.trimEnd(), beatsLine: beatsLine.trimEnd() };
+}
+
+function buildFullPreviewText(){
+  const out = [];
+  let any = false;
+
+  SECTIONS.filter(s => s !== "Full").forEach(sec => {
+    const arr = state.project.sections[sec] || [];
+
+    const hasAny = arr.some(line => {
+      const lyr = String(line?.lyrics || "").trim();
+      const notes = Array.isArray(line?.notes) ? line.notes : [];
+      const beats = Array.isArray(line?.beats) ? line.beats : [];
+      const hasNotes = notes.some(n => String(n||"").trim());
+      const hasBeats = beats.some(b => String(b||"").trim());
+      return !!lyr || hasNotes || hasBeats;
+    });
+    if(!hasAny) return;
+
+    any = true;
+    out.push(sec.toUpperCase());
+    out.push("");
+
+    arr.forEach((line, idx) => {
+      const lyr = String(line?.lyrics || "").trim();
+      const notes = Array.isArray(line?.notes) ? line.notes : [];
+      const beats = Array.isArray(line?.beats) ? line.beats : [];
+
+      const hasNotes = notes.some(n => String(n||"").trim());
+      const hasBeats = beats.some(b => String(b||"").trim());
+      const hasLyrics = !!lyr;
+
+      if(!hasNotes && !hasBeats && !hasLyrics) return;
+
+      const aligned = buildAlignedLine(line, state.capo || 0);
+
+      out.push(`(${idx+1})`);
+      out.push(`    ${aligned.notesLine}`);
+      out.push(`    ${aligned.beatsLine}`);
+      out.push("");
+    });
+
+    out.push("");
+  });
+
+  return any ? out.join("\n").trim() : "(No lyrics/notes yet - start typing in a section)";
+}
+
+function buildFullPreviewHtmlDoc(title){
+  const lines = [];
+  SECTIONS.filter(s => s !== "Full").forEach(sec => {
+    const arr = state.project.sections[sec] || [];
+
+    const hasAny = arr.some(line => {
+      const lyr = String(line?.lyrics || "").trim();
+      const notes = Array.isArray(line?.notes) ? line.notes : [];
+      const beats = Array.isArray(line?.beats) ? line.beats : [];
+      const hasNotes = notes.some(n => String(n||"").trim());
+      const hasBeats = beats.some(b => String(b||"").trim());
+      return !!lyr || hasNotes || hasBeats;
+    });
+    if(!hasAny) return;
+
+    lines.push({ kind:"section", text: sec.toUpperCase() });
+    lines.push({ kind:"blank", text:"" });
+
+    arr.forEach((line, idx) => {
+      const lyr = String(line?.lyrics || "").trim();
+      const notes = Array.isArray(line?.notes) ? line.notes : [];
+      const beats = Array.isArray(line?.beats) ? line.beats : [];
+
+      const hasNotes = notes.some(n => String(n||"").trim());
+      const hasBeats = beats.some(b => String(b||"").trim());
+      const hasLyrics = !!lyr;
+      if(!hasNotes && !hasBeats && !hasLyrics) return;
+
+      const aligned = buildAlignedLine(line, state.capo || 0);
+
+      lines.push({ kind:"idx", text:`(${idx+1})` });
+      lines.push({ kind:"notes", text:`    ${aligned.notesLine}` });
+      lines.push({ kind:"lyrics", text:`    ${aligned.beatsLine}` });
+      lines.push({ kind:"blank", text:"" });
+    });
+
+    lines.push({ kind:"blank", text:"" });
+  });
+
+  const safeTitle = escapeHtml(title || "Song Rider Pro - Full Preview");
+
+  const bodyHtml = lines.length
+    ? lines.map(L => {
+        if(L.kind === "section") return `<div class="section">${escapeHtml(L.text)}</div>`;
+        if(L.kind === "idx") return `<div class="idx">${escapeHtml(L.text)}</div>`;
+        if(L.kind === "notes") return `<div class="notes">${escapeHtml(L.text)}</div>`;
+        if(L.kind === "lyrics") return `<div class="lyrics">${escapeHtml(L.text)}</div>`;
+        return `<div class="blank">${escapeHtml(L.text)}</div>`;
+      }).join("\n")
+    : `<div class="lyrics">(No lyrics/notes yet - start typing in a section)</div>`;
+
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${safeTitle}</title>
+<style>
+  :root{ --noteRed:#7f1d1d; }
+  body{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    margin:24px;
+    color:#111;
   }
+  .section{
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    font-weight:900;
+    margin-top:20px;
+    margin-bottom:8px;
+    letter-spacing:.3px;
+  }
+  .idx{ font-weight:900; margin:8px 0 2px; }
+  .notes{ color: var(--noteRed); font-weight:900; white-space:pre; }
+  .lyrics{ color:#111; white-space:pre; }
+  .blank{ white-space:pre; height:10px; }
+  @media print{ body{ margin:0.5in; } }
+</style>
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>`;
+}
 
-  /***********************
-   * BAR ADVANCE (autoscroll)
-   ***********************/
-  function autoAdvanceOnBar(){
-    if(!state.autoScrollOn) return;
-    if(state.currentSection === "Full") return;
-    if(state.tick8 % 8 !== 0) return;
+function updateFullIfVisible(){
+  if(state.currentSection !== "Full") return;
+  const preview = el.sheetBody.querySelector("textarea.fullPreview");
+  if(preview) preview.value = buildFullPreviewText();
+}
 
-    const cards = Array.from(el.sheetBody.querySelectorAll(".card"));
-    if(cards.length === 0) return;
+/***********************
+EXPORT
+***********************/
+async function exportFullPreview(){
+  try{
+    const plain = buildFullPreviewText();
+    if(!plain || !String(plain).trim()){
+      alert("Nothing to export yet.");
+      return;
+    }
 
-    const active = getNearestVisibleCard() || cards[0];
-    const idx = cards.indexOf(active);
-    const next = cards[idx + 1] || cards[0];
+    const safeName = String(state.project?.name || "Song Rider Pro")
+      .replace(/[/:*?"<>|]+/g, "")
+      .trim() || "Song Rider Pro";
+
+    const htmlName = `${safeName} - Full Preview (Print).html`;
+    const htmlDoc = buildFullPreviewHtmlDoc(`${safeName} - Full Preview`);
+    const htmlBlob = new Blob([htmlDoc], { type:"text/html;charset=utf-8" });
+    const htmlFile = new File([htmlBlob], htmlName, { type:"text/html" });
 
     try{
-      next.scrollIntoView({ behavior:"smooth", block:"start" });
+      if(navigator.share && navigator.canShare && navigator.canShare({ files:[htmlFile] })){
+        await navigator.share({ title: safeName, files: [htmlFile] });
+        return;
+      }
+    }catch{}
+
+    const url = URL.createObjectURL(htmlBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = htmlName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 800);
+
+  }catch{
+    alert("Export failed on this device/browser.");
+  }
+}
+
+/***********************
+Sheet rendering
+***********************/
+function renderSheetActions(){
+  el.sheetActions.innerHTML = "";
+  if(state.currentSection === "Full") return;
+
+  const addBtn = document.createElement("button");
+  addBtn.className = "btn secondary";
+  addBtn.textContent = "+ Line";
+  addBtn.title = "Add another card (line)";
+  addBtn.addEventListener("click", () => {
+    const arr = ensureSectionArray(state.currentSection);
+    arr.push(newLine());
+    upsertProject(state.project);
+    renderSheet();
+    updateFullIfVisible();
+    updateKeyFromAllNotes();
+    clearTick(); applyTick();
+    refreshDisplayedNoteCells();
+    refreshRhymesFromActive();
+  });
+
+  el.sheetActions.appendChild(addBtn);
+}
+
+function renderSheet(){
+  el.sheetTitle.textContent = state.currentSection;
+  renderSheetActions();
+
+  state.playCardIndex = null;
+
+  if(state.currentSection === "Full"){
+    el.sheetHint.textContent = "Full Page (editable) + Preview (auto):";
+    el.sheetBody.innerHTML = "";
+
+    const wrap = document.createElement("div");
+    wrap.className = "fullBoxWrap";
+
+    const label1 = document.createElement("div");
+    label1.className = "fullLabel";
+    label1.textContent = "FULL PAGE (type anything here):";
+
+    const ta = document.createElement("textarea");
+    ta.className = "fullBox";
+    ta.readOnly = false;
+    ta.placeholder = "Type your full lyrics / notes here…";
+    ta.value = state.project.fullText || "";
+    ta.addEventListener("input", () => {
+      state.project.fullText = ta.value;
+      upsertProject(state.project);
+    });
+
+    const label2 = document.createElement("div");
+    label2.className = "fullLabel";
+    label2.textContent = "FULL PREVIEW (auto from cards):";
+
+    const preview = document.createElement("textarea");
+    preview.className = "fullPreview";
+    preview.readOnly = true;
+    preview.value = buildFullPreviewText();
+
+    wrap.appendChild(label1);
+    wrap.appendChild(ta);
+    wrap.appendChild(label2);
+    wrap.appendChild(preview);
+
+    el.sheetBody.appendChild(wrap);
+    return;
+  }
+
+  el.sheetHint.textContent = "";
+  const cardsWrap = document.createElement("div");
+  cardsWrap.className = "cards";
+
+  const arr = ensureSectionArray(state.currentSection);
+
+  arr.forEach((line, idx) => {
+    if(!Array.isArray(line.notes)) line.notes = Array(8).fill("");
+    if(!Array.isArray(line.beats)) line.beats = Array(4).fill("");
+    line.notes = Array.from({length:8}, (_,i)=> String(line.notes[i] ?? "").trim());
+    line.beats = Array.from({length:4}, (_,i)=> String(line.beats[i] ?? "").trim());
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const top = document.createElement("div");
+    top.className = "cardTop";
+
+    const num = document.createElement("div");
+    num.className = "cardNum";
+    num.textContent = String(idx + 1);
+    num.title = "Long-press to delete this line";
+
+    let pressTimer = null;
+    const startPress = () => {
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(() => {
+        if(!confirm(`Delete line ${idx+1} from ${state.currentSection}?`)) return;
+        arr.splice(idx, 1);
+        while(arr.length < DEFAULT_LINES_PER_SECTION) arr.push(newLine());
+        upsertProject(state.project);
+        renderSheet();
+        updateFullIfVisible();
+        updateKeyFromAllNotes();
+        clearTick(); applyTick();
+        refreshDisplayedNoteCells();
+        refreshRhymesFromActive();
+      }, 650);
+    };
+    const endPress = () => clearTimeout(pressTimer);
+
+    num.addEventListener("touchstart", startPress, {passive:true});
+    num.addEventListener("touchend", endPress);
+    num.addEventListener("touchcancel", endPress);
+    num.addEventListener("mousedown", startPress);
+    num.addEventListener("mouseup", endPress);
+    num.addEventListener("mouseleave", endPress);
+
+    const syll = document.createElement("div");
+    syll.className = "syllPill";
+    syll.textContent = "Syllables: " + countSyllablesInline(line.lyrics || "");
+
+    top.appendChild(num);
+    top.appendChild(syll);
+
+    const notesRow = document.createElement("div");
+    notesRow.className = "notesRow";
+
+    for(let i=0;i<8;i++){
+      const inp = document.createElement("input");
+      inp.type = "text";
+      inp.className = "noteCell";
+
+      const raw = String(line.notes[i] || "").trim();
+      inp.dataset.raw = raw;
+
+      inp.value = (state.capo ? transposeChordName(raw, state.capo) : raw);
+
+      inp.autocomplete = "off";
+      inp.autocapitalize = "characters";
+      inp.spellcheck = false;
+
+      inp.addEventListener("pointerdown", (e)=>{ e.stopPropagation(); });
+
+      inp.addEventListener("focus", () => {
+        lastActiveCardEl = card;
+        inp.value = inp.dataset.raw || "";
+      });
+
+      inp.addEventListener("input", () => {
+        const rawNow = String(inp.value || "").trim();
+        inp.dataset.raw = rawNow;
+        line.notes[i] = rawNow;
+
+        upsertProject(state.project);
+        updateKeyFromAllNotes();
+        updateFullIfVisible();
+      });
+
+      inp.addEventListener("blur", () => {
+        const rawNow = String(inp.value || "").trim();
+        inp.dataset.raw = rawNow;
+        line.notes[i] = rawNow;
+
+        upsertProject(state.project);
+        updateKeyFromAllNotes();
+        updateFullIfVisible();
+
+        inp.value = (state.capo ? transposeChordName(rawNow, state.capo) : rawNow);
+      });
+
+      notesRow.appendChild(inp);
+    }
+
+    const lyr = document.createElement("textarea");
+    lyr.className = "lyrics";
+    lyr.placeholder = "Type lyrics (AutoSplit on)…";
+    lyr.value = line.lyrics || "";
+
+    lyr.addEventListener("focus", () => {
+      lastLyricsTextarea = lyr;
+      lastActiveCardEl = card;
+      refreshRhymesFromActive();
+    });
+
+    const beatsRow = document.createElement("div");
+    beatsRow.className = "beatsRow";
+
+    const beatInputs = [];
+    for(let i=0;i<4;i++){
+      const inp = document.createElement("textarea");
+      inp.className = "beatCell";
+      inp.value = String(line.beats[i] || "");
+      inp.spellcheck = false;
+
+      inp.addEventListener("pointerdown", (e)=>{ e.stopPropagation(); });
+
+      inp.addEventListener("focus", () => {
+        lastActiveCardEl = card;
+      });
+
+      inp.addEventListener("input", () => {
+        line.beats[i] = String(inp.value || "").trim();
+        upsertProject(state.project);
+        updateFullIfVisible();
+      });
+
+      beatInputs.push(inp);
+      beatsRow.appendChild(inp);
+    }
+
+    lyr.addEventListener("input", () => {
+      line.lyrics = lyr.value;
+      syll.textContent = "Syllables: " + countSyllablesInline(line.lyrics || "");
+      upsertProject(state.project);
+      updateFullIfVisible();
+
+      refreshRhymesFromActive();
+
+      if(state.autoSplit){
+        const boxes = autosplitBeatsFromLyrics(line.lyrics);
+        line.beats = boxes;
+        for(let k=0;k<4;k++){
+          beatInputs[k].value = line.beats[k] || "";
+        }
+        upsertProject(state.project);
+        updateFullIfVisible();
+      }
+
+      if(state.autoSplit && lyr.value.includes("\n")){
+        const parts = lyr.value.split("\n");
+        const first = parts.shift();
+        line.lyrics = first;
+        const rest = parts.join("\n").trim();
+
+        if(rest){
+          const nl = newLine();
+          nl.lyrics = rest;
+          nl.beats = autosplitBeatsFromLyrics(rest);
+          arr.splice(idx+1, 0, nl);
+        }
+
+        while(arr.length < DEFAULT_LINES_PER_SECTION) arr.push(newLine());
+
+        upsertProject(state.project);
+        renderSheet();
+        updateFullIfVisible();
+        updateKeyFromAllNotes();
+        clearTick(); applyTick();
+        refreshDisplayedNoteCells();
+        refreshRhymesFromActive();
+      }
+    });
+
+    card.appendChild(top);
+    card.appendChild(notesRow);
+    card.appendChild(lyr);
+    card.appendChild(beatsRow);
+    cardsWrap.appendChild(card);
+  });
+
+  el.sheetBody.innerHTML = "";
+  el.sheetBody.appendChild(cardsWrap);
+
+  lastActiveCardEl = getNearestVisibleCard();
+  clearTick(); applyTick();
+
+  refreshDisplayedNoteCells();
+}
+async function uploadAudioFile(){
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = "audio/*"; // mp3, wav, m4a (browser dependent)
+  inp.click();
+
+  inp.onchange = async () => {
+    const file = inp.files && inp.files[0];
+    if(!file) return;
+
+    const item = {
+      id: uuid(),
+      projectId: state.project?.id || "",
+      kind: "upload",
+      createdAt: now(),
+      title: file.name || "Audio",
+      blob: file,          // File is a Blob
+      offsetSec: 0         // you’ll want a Beat-1 marker button for this
+    };
+
+    await dbPut(item);
+    await renderRecordings();
+
+    // optional: auto-start sync immediately after upload
+    await startAudioSyncFromRec(item);
+  };
+}
+
+/***********************
+Recordings UI
+***********************/
+function fmtDate(ms){
+  try{ return new Date(ms).toLocaleString(); }catch{ return String(ms); }
+}
+
+async function renderRecordings(){
+  const all = await dbGetAll();
+  const mine = all.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  el.recordingsList.innerHTML = "";
+
+  if(mine.length === 0){
+    const d = document.createElement("div");
+    d.style.color="#666";
+    d.style.fontWeight="900";
+    d.textContent = "No recordings yet.";
+    el.recordingsList.appendChild(d);
+    return;
+  }
+
+  mine.forEach(rec => {
+    const row = document.createElement("div");
+    row.style.display="flex";
+    row.style.gap="8px";
+    row.style.alignItems="center";
+    row.style.flexWrap="nowrap";
+    row.style.overflow="hidden";
+    row.style.whiteSpace="nowrap";
+    row.style.border="1px solid rgba(0,0,0,.10)";
+    row.style.borderRadius="14px";
+    row.style.padding="10px";
+
+    const title = document.createElement("div");
+    title.style.flex="1 1 0";
+    title.style.minWidth="0";
+    title.style.overflow="hidden";
+    title.style.textOverflow="ellipsis";
+    title.style.whiteSpace="nowrap";
+    title.style.fontWeight="1100";
+    title.textContent = (rec.title && rec.title.trim() ? rec.title.trim() + " - " : "") + fmtDate(rec.createdAt || now());
+
+    const edit = document.createElement("button");
+    edit.className="btn secondary";
+    edit.textContent="✏️";
+    edit.title="Rename recording";
+    edit.addEventListener("click", async () => {
+      const name = prompt("Recording title:", rec.title || "");
+      if(name === null) return;
+      rec.title = (name.trim() || "");
+      await dbPut(rec);
+      renderRecordings();
+    });
+
+    const play = document.createElement("button");
+    play.className="btn secondary";
+    play.textContent="▶";
+    play.title="Play";
+    const stop = document.createElement("button");
+stop.className="btn secondary";
+stop.textContent="⏹";
+stop.title="Stop (and stop sync)";
+stop.addEventListener("click", () => {
+  stopAudioSync();
+});
+
+  play.addEventListener("click", async () => {
+  if(!rec.blob) return;
+
+  // If something is already driving sync, stop it first
+  if(state.audioSyncOn) stopAudioSync();
+
+  // Start audio + tick/scroll sync from this recording
+  await startAudioSyncFromRec(rec);
+});
+
+
+
+    const download = document.createElement("button");
+    download.className="btn secondary";
+    download.textContent="↓";
+    download.title="Download";
+    download.addEventListener("click", () => {
+  if(!rec.blob) return;
+
+  const blob = rec.blob;
+  const type = String(blob.type || "").toLowerCase();
+
+  // try extension from uploaded File name first
+  let ext = "";
+  if(blob instanceof File && blob.name){
+    const m = blob.name.match(/\.([a-z0-9]+)$/i);
+    if(m) ext = "." + m[1].toLowerCase();
+  }
+
+  // fallback by mime type
+  if(!ext){
+    if(type.includes("mpeg")) ext = ".mp3";
+    else if(type.includes("mp3")) ext = ".mp3";
+    else if(type.includes("wav")) ext = ".wav";
+    else if(type.includes("mp4") || type.includes("m4a")) ext = ".m4a";
+    else if(type.includes("ogg")) ext = ".ogg";
+    else if(type.includes("webm")) ext = ".webm";
+    else ext = ".audio";
+  }
+
+  const safeBase = (rec.title && rec.title.trim() ? rec.title.trim() : "recording")
+    .replace(/[\\/:*?"<>|]+/g,"")
+    .trim() || "recording";
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = safeBase + ext;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 800);
+});
+
+
+    const del = document.createElement("button");
+    del.className="btn secondary";
+    del.textContent="🗑️";
+    del.title="Delete recording";
+    del.addEventListener("click", async () => {
+      if(!confirm("Delete this recording?")) return;
+      await dbDelete(rec.id);
+      renderRecordings();
+    });
+
+  row.appendChild(title);
+row.appendChild(edit);
+row.appendChild(play);
+row.appendChild(stop);
+row.appendChild(download);
+row.appendChild(del);
+
+    el.recordingsList.appendChild(row);
+  });
+}
+
+/***********************
+Recording bus (taps masterPost)
+***********************/
+function ensureRecordingBus(){
+  const ctx = ensureCtx();
+
+  if(!state.recDest){
+    state.recDest = ctx.createMediaStreamDestination();
+  }
+
+  if(!state.recMix){
+    state.recMix = ctx.createGain();
+    state.recMix.gain.value = 1.0;
+    state.recMix.connect(state.recDest);
+  }
+
+  if(!state.recWired && state.masterPost){
+    try{
+      state.masterPost.connect(state.recMix);
+      state.recWired = true;
     }catch{}
   }
 
-  /***********************
-   * DRUMS + CLOCK
-   ***********************/
-  function stopBeatClock(){
-    if(state.beatTimer){
-      clearInterval(state.beatTimer);
-      state.beatTimer = null;
+  if(state.audioSyncOn && state.audioSyncGain){
+    try{
+      state.audioSyncGain.connect(state.recMix);
+    }catch{}
+  }
+}
+
+async function startAudioSyncFromRec(rec){
+  if(!rec || !rec.blob) return;
+
+  // stop internal beat clock (mp3 becomes the clock)
+  stopBeatClock();
+
+  // stop drums/instrument to prevent “double audio chaos”
+  if(state.drumsOn) stopDrums();
+  if(state.instrumentOn) stopInstrument();
+
+  // stop any current audio sync FIRST
+  audioSyncStopInternal();
+
+  // now enable sync
+  state.audioSyncOn = true;
+  state.audioSyncRecId = rec.id;
+  state.audioSyncOffsetSec = Number(rec.offsetSec || 0) || 0;
+
+  const url = URL.createObjectURL(rec.blob);
+  state.audioSyncUrl = url;
+
+  const audio = new Audio(url);
+  audio.preload = "auto";
+  audio.playsInline = true;
+  audio.muted = false;
+  audio.volume = 1;
+
+  state.audioSyncAudio = audio;
+
+  const ctx = ensureCtx();
+
+  // ALWAYS route MP3 through WebAudio so it can be recorded (and so levels are consistent)
+  try{ if(state.audioSyncSource) state.audioSyncSource.disconnect(); }catch{}
+  try{ if(state.audioSyncGain) state.audioSyncGain.disconnect(); }catch{}
+  state.audioSyncSource = null;
+  state.audioSyncGain = null;
+
+  try{
+    state.audioSyncSource = ctx.createMediaElementSource(audio);
+    state.audioSyncGain = ctx.createGain();
+    state.audioSyncGain.gain.value = 1.0;
+
+    // To speakers via your master chain
+    state.audioSyncSource.connect(state.audioSyncGain);
+    state.audioSyncGain.connect(getOutNode());
+
+    // If recorder bus exists (or once created), also feed into recorder mix
+    if(state.recDest || state.recMix){
+      ensureRecordingBus();
+      try{ state.audioSyncGain.connect(state.recMix); }catch{}
     }
-    clearTick();
+  }catch(e){
+    console.warn("MP3->WebAudio routing failed:", e);
+    // Fallback: let audio element play normally (still hear it, may not record it)
   }
 
-  function startBeatClock(){
-    stopBeatClock();
-    const bpm = clamp(state.bpm || 95, 40, 220);
-    const eighthMs = Math.round((60000 / bpm) / 2);
-
-    state.tick8 = 0;
-    clearTick();
-
-    state.beatTimer = setInterval(() => {
-      clearTick();
-      applyTick();
-
-      if(state.drumsOn && state.tick8 % 2 === 0) doBlink();
-      if(state.drumsOn) playInstrumentStep();
-      if(state.drumsOn) autoAdvanceOnBar();
-
-      state.tick8++;
-    }, eighthMs);
+  if(el.nowPlaying){
+    const label = (rec.title && rec.title.trim()) ? rec.title.trim() : "Audio";
+    el.nowPlaying.textContent = "Now playing: " + label;
   }
 
-  function stopDrums(){
-    if(state.drumTimer){
-      clearInterval(state.drumTimer);
-      state.drumTimer = null;
+  audio.onended = () => {
+    audioSyncStopInternal();
+  };
+
+  try{
+    await audio.play();
+  }catch(e){
+    alert("Couldn't play audio. (Browser blocked playback.) Tap a button again to allow audio.");
+    state.audioSyncOn = false;
+    return;
+  }
+
+  state.lastAudioTick8 = -1;
+  state.audioSyncRaf = requestAnimationFrame(audioSyncFrame);
+}
+
+
+function pickBestMimeType(){
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg"
+  ];
+  for(const t of types){
+    try{
+      if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
+    }catch{}
+  }
+  return "";
+}
+
+async function startRecording(){
+  ensureCtx();
+  ensureRecordingBus();
+
+  // Get mic
+  const micStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
     }
-    state.drumsOn = false;
-    stopBeatClock();
-  }
+  });
 
-  function startDrums(){
-    stopDrums();
-    state.drumsOn = true;
-    startBeatClock();
+  state.recMicStream = micStream;
+  state.recChunks = [];
 
-    const bpm = clamp(state.bpm || 95, 40, 220);
-    const stepMs = Math.round((60000 / bpm) / 2);
-    let step = 0;
+  const ctx = ensureCtx();
 
-    state.drumTimer = setInterval(() => {
-      if(!state.drumsOn) return;
-      const s = step % 16;
+  // Mic -> recorder mix (NOT directly to recDest)
+  const micSource = ctx.createMediaStreamSource(micStream);
+  state.recMicSource = micSource;
 
-      if(state.drumStyle === "rap"){
-        if(s === 0 || s === 6 || s === 8) drumHit("kick");
-        if(s === 4 || s === 12) drumHit("snare");
-        drumHit("hat");
-      } else if(state.drumStyle === "rock"){
-        if(s === 0 || s === 8) drumHit("kick");
-        if(s === 4 || s === 12) drumHit("snare");
-        drumHit("hat");
-      } else if(state.drumStyle === "hardrock"){
-        if(s === 0 || s === 2 || s === 8 || s === 10) drumHit("kick");
-        if(s === 4 || s === 12) drumHit("snare");
-        drumHit("hat");
-      } else {
-        if(s === 0 || s === 7 || s === 8) drumHit("kick");
-        if(s === 4 || s === 12) drumHit("snare");
-        if(s % 2 === 0) drumHit("hat");
+  const micGain = ctx.createGain();
+  micGain.gain.value = 1.0;
+
+  micSource.connect(micGain);
+  micGain.connect(state.recMix);
+
+  const options = {};
+  const mt = pickBestMimeType();
+  if(mt) options.mimeType = mt;
+
+  const rec = new MediaRecorder(state.recDest.stream, options);
+  state.rec = rec;
+
+  rec.ondataavailable = (e) => {
+    if(e.data && e.data.size) state.recChunks.push(e.data);
+  };
+
+  rec.onstop = async () => {
+    // cleanup mic nodes
+    try{ micSource.disconnect(); }catch{}
+    try{ micGain.disconnect(); }catch{}
+
+    try{
+      if(state.recMicStream){
+        state.recMicStream.getTracks().forEach(t => t.stop());
       }
-
-      step++;
-    }, stepMs);
-  }
-
-  function stopInstrument(){ state.instrumentOn = false; }
-  function startInstrument(){ state.instrumentOn = true; ensureCtx(); }
-
-  /***********************
-   * UI helpers
-   ***********************/
-  function setActive(ids, activeId){
-    ids.forEach(id => {
-      const b = $(id);
-      if(!b) return;
-      b.classList.toggle("active", id === activeId);
-    });
-  }
-
-  function renderInstrumentUI(){
-    const map = { acoustic:"instAcoustic", electric:"instElectric", piano:"instPiano" };
-    const active = state.instrumentOn ? map[state.instrument] : null;
-    setActive(Object.values(map), active);
-  }
-
-  function renderDrumUI(){
-    const map = { rock:"drumRock", hardrock:"drumHardRock", pop:"drumPop", rap:"drumRap" };
-    const mapMini = { rock:"mRock", hardrock:"mHardRock", pop:"mPop", rap:"mRap" };
-    const active = state.drumsOn ? map[state.drumStyle] : null;
-    setActive(Object.values(map), active);
-    const activeMini = state.drumsOn ? mapMini[state.drumStyle] : null;
-    setActive(Object.values(mapMini), activeMini);
-  }
-
-  function setAutoScroll(on){
-    state.autoScrollOn = !!on;
-    $("autoPlayBtn")?.classList.toggle("on", state.autoScrollOn);
-    $("mScrollBtn")?.classList.toggle("on", state.autoScrollOn);
-
-    if(state.autoScrollTimer){
-      clearInterval(state.autoScrollTimer);
-      state.autoScrollTimer = null;
-    }
-    if(state.autoScrollOn){
-      state.autoScrollTimer = setInterval(() => {
-        window.scrollBy({ top: 1, left: 0, behavior: "auto" });
-      }, 25);
-    }
-  }
-
-  function setPanelHidden(hidden){
-    el.panelBody.classList.toggle("hidden", hidden);
-    el.togglePanelBtn.textContent = hidden ? "Show" : "Hide";
-    el.miniBar.classList.toggle("show", hidden);
-  }
-
-  function setRecordUI(){
-    const label = state.isRecording ? "Stop" : "Record";
-    if(el.recordBtn) el.recordBtn.textContent = label;
-    if(el.mRecordBtn) el.mRecordBtn.textContent = label;
-  }
-
-  /***********************
-   * Tabs + editor
-   ***********************/
-  function ensureSectionArray(sec){
-    if(sec === "Full") return [];
-    if(!state.project.sections[sec]) state.project.sections[sec] = [];
-    while(state.project.sections[sec].length < DEFAULT_LINES_PER_SECTION){
-      state.project.sections[sec].push(newLine());
-    }
-    return state.project.sections[sec];
-  }
-
-  function renderTabs(){
-    el.tabs.innerHTML = "";
-    SECTIONS.forEach(sec => {
-      const b = document.createElement("button");
-      b.className = "tab";
-      b.textContent = sec;
-      b.classList.toggle("active", sec === state.currentSection);
-      b.addEventListener("click", () => {
-        state.currentSection = sec;
-        renderTabs();
-        renderSheet();
-        clearTick();
-        applyTick();
-
-        lastActiveCardEl = null;
-        lastLyricsTextarea = null;
-        refreshRhymesFromActive();
-      });
-      el.tabs.appendChild(b);
-    });
-  }
-
-  function countSyllablesInline(text){
-    const s = String(text||"").toLowerCase().replace(/[^a-z\s']/g," ").trim();
-    if(!s) return 0;
-    const words = s.split(/\s+/).filter(Boolean);
-    let total = 0;
-    for(const w0 of words){
-      let w = w0.replace(/'s$/,"").replace(/'$/,"");
-      if(!w) continue;
-      w = w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/,"");
-      w = w.replace(/^y/,"");
-      const m = w.match(/[aeiouy]{1,2}/g);
-      total += m ? m.length : 1;
-    }
-    return total;
-  }
-
-  /***********************
-   * AutoSplit
-   ***********************/
-  function tokenizeWords(text){
-    return String(text||"")
-      .replace(/\s+/g, " ")
-      .trim()
-      .split(" ")
-      .filter(Boolean);
-  }
-
-  function estimateSyllablesWord(w){
-    return Math.max(1, countSyllablesInline(w));
-  }
-
-  function autosplitBeatsFromLyrics(lyrics){
-    const words = tokenizeWords(lyrics);
-    if(words.length === 0) return ["","","",""];
-
-    const sylCounts = words.map(estimateSyllablesWord);
-    const totalSyl = sylCounts.reduce((a,b)=>a+b,0);
-    const target = Math.max(1, Math.ceil(totalSyl / 4));
-
-    const boxes = [[],[],[],[]];
-    let bi = 0;
-    let acc = 0;
-
-    for(let i=0;i<words.length;i++){
-      const w = words[i];
-      const s = sylCounts[i];
-
-      if(bi < 3 && acc >= target){
-        bi++;
-        acc = 0;
-      }
-
-      boxes[bi].push(w);
-      acc += s;
-    }
-
-    return boxes.map(arr => arr.join(" ").trim());
-  }
-
-  /***********************
-   * Key display
-   ***********************/
-  const MAJOR_PROFILE = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
-  const MINOR_PROFILE = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
-  function dot(a,b){ let s=0; for(let i=0;i<12;i++) s += (a[i]||0) * (b[i]||0); return s; }
-  function norm(v){ return Math.sqrt(v.reduce((a,x)=>a+(x*x),0)) || 1; }
-  function rotate(arr, t){
-    const out = Array(12).fill(0);
-    for(let i=0;i<12;i++) out[(i+t)%12] = arr[i];
-    return out;
-  }
-  function keyFromHistogram(hist){
-    const hn = norm(hist);
-    let best = { score:-1e9, pc:0, mode:"maj" };
-    for(let t=0;t<12;t++){
-      const maj = rotate(MAJOR_PROFILE, t);
-      const min = rotate(MINOR_PROFILE, t);
-      const sMaj = dot(hist, maj)/hn/norm(maj);
-      const sMin = dot(hist, min)/hn/norm(min);
-      if(sMaj > best.score) best = { score:sMaj, pc:t, mode:"maj" };
-      if(sMin > best.score) best = { score:sMin, pc:t, mode:"min" };
-    }
-    return best;
-  }
-
-  function updateKeyFromAllNotes(){
-    const hist = Array(12).fill(0);
-    SECTIONS.filter(s => s !== "Full").forEach(sec => {
-      (state.project.sections[sec] || []).forEach(line => {
-        (Array.isArray(line.notes) ? line.notes : []).forEach(tok => {
-          const pc = noteToPC(tok);
-          if(pc !== null) hist[pc] += 1;
-        });
-      });
-    });
-
-    const k = keyFromHistogram(hist);
-    const transposedPC = (k.pc + (state.capo % 12) + 12) % 12;
-    el.keyOutput.value = `${PC_TO_NAME[transposedPC]} ${k.mode}`;
-  }
-
-  /***********************
-   * Full preview (FIX: show transposed notes)
-   ***********************/
-  function compactNotesLine(notesArr, semis=0){
-    const notes = Array.isArray(notesArr) ? notesArr : Array(8).fill("");
-    return notes.map(n => {
-      const raw = String(n||"").trim();
-      if(!raw) return "—";
-      return semis ? transposeNoteName(raw, semis) : raw;
-    }).join(" ");
-  }
-
-  function buildFullPreviewText(){
-    const out = [];
-    let any = false;
-
-    SECTIONS.filter(s => s !== "Full").forEach(sec => {
-      const arr = state.project.sections[sec] || [];
-      const hasAny = arr.some(line => {
-        const lyr = String(line.lyrics || "").trim();
-        const notes = Array.isArray(line.notes) ? line.notes : [];
-        const hasNotes = notes.some(n => String(n||"").trim());
-        return !!lyr || hasNotes;
-      });
-      if(!hasAny) return;
-
-      any = true;
-      out.push(sec.toUpperCase());
-      out.push("");
-
-      arr.forEach((line, idx) => {
-        const lyr = String(line.lyrics || "").trim();
-
-        // ✅ show transposed notes in full preview
-        const notesLine = compactNotesLine(line.notes, state.capo || 0);
-
-        const hasNotes = notesLine.replace(/—|\s/g,"").length > 0;
-        const hasLyrics = !!lyr;
-
-        if(!hasNotes && !hasLyrics) return;
-
-        out.push(`(${idx+1}) ${notesLine}`);
-        if(hasLyrics) out.push(`    ${lyr}`);
-        out.push("");
-      });
-
-      out.push("");
-    });
-
-    return any ? out.join("\n").trim() : "(No lyrics/notes yet — start typing in a section)";
-  }
-
-  function updateFullIfVisible(){
-    if(state.currentSection !== "Full") return;
-    const preview = el.sheetBody.querySelector("textarea.fullPreview");
-    if(preview) preview.value = buildFullPreviewText();
-  }
-
-  /***********************
-   * Sheet rendering
-   ***********************/
-  function renderSheetActions(){
-    el.sheetActions.innerHTML = "";
-    if(state.currentSection === "Full") return;
-
-    const addBtn = document.createElement("button");
-    addBtn.className = "btn secondary";
-    addBtn.textContent = "+ Line";
-    addBtn.title = "Add another card (line)";
-    addBtn.addEventListener("click", () => {
-      const arr = ensureSectionArray(state.currentSection);
-      arr.push(newLine());
-      upsertProject(state.project);
-      renderSheet();
-      updateFullIfVisible();
-      updateKeyFromAllNotes();
-      clearTick(); applyTick();
-      refreshDisplayedNoteCells();
-    });
-
-    el.sheetActions.appendChild(addBtn);
-  }
-
-  function renderSheet(){
-    el.sheetTitle.textContent = state.currentSection;
-    renderSheetActions();
-
-    if(state.currentSection === "Full"){
-      el.sheetHint.textContent = "Full Page (editable) + Preview (auto):";
-      el.sheetBody.innerHTML = "";
-
-      const wrap = document.createElement("div");
-      wrap.className = "fullBoxWrap";
-
-      const label1 = document.createElement("div");
-      label1.className = "fullLabel";
-      label1.textContent = "FULL PAGE (type anything here):";
-
-      const ta = document.createElement("textarea");
-      ta.className = "fullBox";
-      ta.readOnly = false;
-      ta.placeholder = "Type your full lyrics / notes here…";
-      ta.value = state.project.fullText || "";
-      ta.addEventListener("input", () => {
-        state.project.fullText = ta.value;
-        upsertProject(state.project);
-      });
-
-      const label2 = document.createElement("div");
-      label2.className = "fullLabel";
-      label2.textContent = "FULL PREVIEW (auto from cards):";
-
-      const preview = document.createElement("textarea");
-      preview.className = "fullPreview";
-      preview.readOnly = true;
-      preview.value = buildFullPreviewText();
-
-      wrap.appendChild(label1);
-      wrap.appendChild(ta);
-      wrap.appendChild(label2);
-      wrap.appendChild(preview);
-
-      el.sheetBody.appendChild(wrap);
-      return;
-    }
-
-    el.sheetHint.textContent = "";
-    const cardsWrap = document.createElement("div");
-    cardsWrap.className = "cards";
-
-    const arr = ensureSectionArray(state.currentSection);
-
-    arr.forEach((line, idx) => {
-      if(!Array.isArray(line.notes)) line.notes = Array(8).fill("");
-      if(!Array.isArray(line.beats)) line.beats = Array(4).fill("");
-      line.notes = Array.from({length:8}, (_,i)=> String(line.notes[i] ?? "").trim());
-      line.beats = Array.from({length:4}, (_,i)=> String(line.beats[i] ?? "").trim());
-
-      const card = document.createElement("div");
-      card.className = "card";
-
-      const top = document.createElement("div");
-      top.className = "cardTop";
-
-      const num = document.createElement("div");
-      num.className = "cardNum";
-      num.textContent = String(idx + 1);
-      num.title = "Long-press to delete this line";
-
-      let pressTimer = null;
-      const startPress = () => {
-        clearTimeout(pressTimer);
-        pressTimer = setTimeout(() => {
-          if(!confirm(`Delete line ${idx+1} from ${state.currentSection}?`)) return;
-          arr.splice(idx, 1);
-          while(arr.length < DEFAULT_LINES_PER_SECTION) arr.push(newLine());
-          upsertProject(state.project);
-          renderSheet();
-          updateFullIfVisible();
-          updateKeyFromAllNotes();
-          clearTick(); applyTick();
-          refreshDisplayedNoteCells();
-        }, 650);
-      };
-      const endPress = () => clearTimeout(pressTimer);
-
-      num.addEventListener("touchstart", startPress, {passive:true});
-      num.addEventListener("touchend", endPress);
-      num.addEventListener("touchcancel", endPress);
-      num.addEventListener("mousedown", startPress);
-      num.addEventListener("mouseup", endPress);
-      num.addEventListener("mouseleave", endPress);
-
-      const syll = document.createElement("div");
-      syll.className = "syllPill";
-      syll.textContent = "Syllables: " + countSyllablesInline(line.lyrics || "");
-
-      top.appendChild(num);
-      top.appendChild(syll);
-
-      const notesRow = document.createElement("div");
-      notesRow.className = "notesRow";
-
-      for(let i=0;i<8;i++){
-        const inp = document.createElement("input");
-        inp.type = "text";
-        inp.className = "noteCell";
-
-        const raw = String(line.notes[i] || "").trim();
-        inp.dataset.raw = raw;
-
-        // show transposed display (capo) while not editing
-        inp.value = (state.capo ? transposeNoteName(raw, state.capo) : raw);
-
-        inp.autocomplete = "off";
-        inp.autocapitalize = "characters";
-        inp.spellcheck = false;
-
-        inp.addEventListener("pointerdown", (e)=>{ e.stopPropagation(); });
-
-        inp.addEventListener("focus", () => {
-          lastActiveCardEl = card;
-          // show raw note while editing
-          inp.value = inp.dataset.raw || "";
-        });
-
-        inp.addEventListener("input", () => {
-          const rawNow = String(inp.value || "").trim();
-          inp.dataset.raw = rawNow;
-          line.notes[i] = rawNow;
-
-          upsertProject(state.project);
-          updateKeyFromAllNotes();
-          updateFullIfVisible();
-        });
-
-        inp.addEventListener("blur", () => {
-          const rawNow = String(inp.value || "").trim();
-          inp.dataset.raw = rawNow;
-          line.notes[i] = rawNow;
-
-          upsertProject(state.project);
-          updateKeyFromAllNotes();
-          updateFullIfVisible();
-
-          // show transposed again after editing
-          inp.value = (state.capo ? transposeNoteName(rawNow, state.capo) : rawNow);
-        });
-
-        notesRow.appendChild(inp);
-      }
-
-      const lyr = document.createElement("textarea");
-      lyr.className = "lyrics";
-      lyr.placeholder = "Type lyrics (AutoSplit on)…";
-      lyr.value = line.lyrics || "";
-
-      lyr.addEventListener("focus", () => {
-        lastLyricsTextarea = lyr;
-        lastActiveCardEl = card;
-        refreshRhymesFromActive();
-      });
-
-      const beatsRow = document.createElement("div");
-      beatsRow.className = "beatsRow";
-
-      const beatInputs = [];
-      for(let i=0;i<4;i++){
-        const inp = document.createElement("textarea");
-        inp.className = "beatCell";
-        inp.value = String(line.beats[i] || "");
-        inp.spellcheck = false;
-
-        inp.addEventListener("pointerdown", (e)=>{ e.stopPropagation(); });
-
-        inp.addEventListener("focus", () => {
-          lastActiveCardEl = card;
-        });
-
-        inp.addEventListener("input", () => {
-          line.beats[i] = String(inp.value || "").trim();
-          upsertProject(state.project);
-          updateFullIfVisible();
-        });
-
-        beatInputs.push(inp);
-        beatsRow.appendChild(inp);
-      }
-
-      lyr.addEventListener("input", () => {
-        line.lyrics = lyr.value;
-        syll.textContent = "Syllables: " + countSyllablesInline(line.lyrics || "");
-        upsertProject(state.project);
-        updateFullIfVisible();
-
-        refreshRhymesFromActive();
-
-        if(state.autoSplit){
-          const boxes = autosplitBeatsFromLyrics(line.lyrics);
-          line.beats = boxes;
-          for(let k=0;k<4;k++){
-            beatInputs[k].value = line.beats[k] || "";
-          }
-          upsertProject(state.project);
-          updateFullIfVisible();
-        }
-
-        if(state.autoSplit && lyr.value.includes("\n")){
-          const parts = lyr.value.split("\n");
-          const first = parts.shift();
-          line.lyrics = first;
-          const rest = parts.join("\n").trim();
-
-          if(rest){
-            const nl = newLine();
-            nl.lyrics = rest;
-            nl.beats = autosplitBeatsFromLyrics(rest);
-            arr.splice(idx+1, 0, nl);
-          }
-
-          while(arr.length < DEFAULT_LINES_PER_SECTION) arr.push(newLine());
-
-          upsertProject(state.project);
-          renderSheet();
-          updateFullIfVisible();
-          updateKeyFromAllNotes();
-          clearTick(); applyTick();
-          refreshDisplayedNoteCells();
-        }
-      });
-
-      card.appendChild(top);
-      card.appendChild(notesRow);
-      card.appendChild(lyr);
-      card.appendChild(beatsRow);
-      cardsWrap.appendChild(card);
-    });
-
-    el.sheetBody.innerHTML = "";
-    el.sheetBody.appendChild(cardsWrap);
-
-    lastActiveCardEl = getNearestVisibleCard();
-    clearTick(); applyTick();
-
-    refreshDisplayedNoteCells();
-  }
-
-  /***********************
-   * Recordings UI
-   ***********************/
-  function fmtDate(ms){
-    try{ return new Date(ms).toLocaleString(); }catch{ return String(ms); }
-  }
-
-  async function renderRecordings(){
-    const all = await dbGetAll();
-    const mine = all.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-    el.recordingsList.innerHTML = "";
-
-    if(mine.length === 0){
-      const d = document.createElement("div");
-      d.style.color="#666";
-      d.style.fontWeight="900";
-      d.textContent = "No recordings yet.";
-      el.recordingsList.appendChild(d);
-      return;
-    }
-
-    mine.forEach(rec => {
-      const row = document.createElement("div");
-      row.style.display="flex";
-      row.style.gap="8px";
-      row.style.alignItems="center";
-      row.style.flexWrap="nowrap";
-      row.style.overflow="hidden";
-      row.style.whiteSpace="nowrap";
-      row.style.border="1px solid rgba(0,0,0,.10)";
-      row.style.borderRadius="14px";
-      row.style.padding="10px";
-
-      const title = document.createElement("div");
-      title.style.flex="1 1 0";
-      title.style.minWidth="0";
-      title.style.overflow="hidden";
-      title.style.textOverflow="ellipsis";
-      title.style.whiteSpace="nowrap";
-      title.style.fontWeight="1100";
-      title.textContent = (rec.title && rec.title.trim() ? rec.title.trim() + " — " : "") + fmtDate(rec.createdAt || now());
-
-      const edit = document.createElement("button");
-      edit.className="btn secondary";
-      edit.textContent="✏️";
-      edit.title="Rename recording";
-      edit.addEventListener("click", async () => {
-        const name = prompt("Recording title:", rec.title || "");
-        if(name === null) return;
-        rec.title = (name.trim() || "");
-        await dbPut(rec);
-        renderRecordings();
-      });
-
-      const play = document.createElement("button");
-      play.className="btn secondary";
-      play.textContent="▶";
-      play.title="Play";
-      play.addEventListener("click", () => {
-        if(!rec.blob) return;
-        const url = URL.createObjectURL(rec.blob);
-        const audio = new Audio(url);
-        audio.play().catch(()=>{});
-        audio.onended = () => URL.revokeObjectURL(url);
-      });
-
-      const download = document.createElement("button");
-      download.className="btn secondary";
-      download.textContent="↓";
-      download.title="Download";
-      download.addEventListener("click", () => {
-        if(!rec.blob) return;
-        const url = URL.createObjectURL(rec.blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = (rec.title && rec.title.trim() ? rec.title.trim() : "recording") + ".webm";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 800);
-      });
-
-      const del = document.createElement("button");
-      del.className="btn secondary";
-      del.textContent="🗑️";
-      del.title="Delete recording";
-      del.addEventListener("click", async () => {
-        if(!confirm("Delete this recording?")) return;
-        await dbDelete(rec.id);
-        renderRecordings();
-      });
-
-      row.appendChild(title);
-      row.appendChild(edit);
-      row.appendChild(play);
-      row.appendChild(download);
-      row.appendChild(del);
-      el.recordingsList.appendChild(row);
-    });
-  }
-
-  /***********************
-   * Recording
-   ***********************/
-  async function startRecording(){
-    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    state.recStream = stream;
-    state.recChunks = [];
-
-    const rec = new MediaRecorder(stream);
-    state.rec = rec;
-
-    rec.ondataavailable = (e) => { if(e.data && e.data.size) state.recChunks.push(e.data); };
-
-    rec.onstop = async () => {
-      try{ stream.getTracks().forEach(t => t.stop()); }catch{}
-      const blob = new Blob(state.recChunks, { type: "audio/webm" });
-      const item = { id: uuid(), createdAt: now(), title: "", blob };
-      await dbPut(item);
-      await renderRecordings();
-      state.rec = null;
-      state.recStream = null;
-      state.recChunks = [];
+    }catch{}
+
+    const mime = (mt && mt.includes("ogg")) ? "audio/ogg" : "audio/webm";
+    const blob = new Blob(state.recChunks, { type: mime });
+
+    const item = {
+      id: uuid(),
+      projectId: state.project?.id || "",
+      kind: "mix",
+      createdAt: now(),
+      title: "",
+      blob,
+      offsetSec: 0
     };
 
-    rec.start();
-    state.isRecording = true;
-    setRecordUI();
-  }
+    await dbPut(item);
+    await renderRecordings();
 
-  async function stopRecording(){
-    if(!state.rec) return;
-    try{ state.rec.stop(); }catch{}
+    state.rec = null;
+    state.recChunks = [];
+    state.recMicStream = null;
+    state.recMicSource = null;
+  };
+
+  rec.start(250); // small timeslice helps some Android devices
+  state.isRecording = true;
+  setRecordUI();
+}
+
+
+async function stopRecording(){
+  if(!state.rec) return;
+  try{ state.rec.stop(); }catch{}
+  state.isRecording = false;
+  setRecordUI();
+}
+
+async function toggleRecording(){
+  try{
+    if(state.isRecording) await stopRecording();
+    else await startRecording();
+  }catch(e){
     state.isRecording = false;
     setRecordUI();
+    alert("Recording failed. Make sure mic permission is allowed for this site.");
   }
+}
 
-  async function toggleRecording(){
-    try{
-      if(state.isRecording) await stopRecording();
-      else await startRecording();
-    }catch{
-      state.isRecording = false;
-      setRecordUI();
-      alert("Recording failed. Make sure mic permission is allowed for this site.");
-    }
-  }
+/***********************
+Projects dropdown
+***********************/
+function renderProjectsDropdown(){
+  const all = loadAllProjects().map(normalizeProject).filter(Boolean);
+  const sort = el.sortSelect.value;
 
-  /***********************
-   * Projects dropdown
-   ***********************/
-  function renderProjectsDropdown(){
-    const all = loadAllProjects().map(normalizeProject).filter(Boolean);
-    const sort = el.sortSelect.value;
+  let list = [...all];
+  if(sort === "az") list.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  else list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
 
-    let list = [...all];
-    if(sort === "az") list.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
-    else list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  el.projectSelect.innerHTML = "";
+  list.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.name || "Untitled";
+    if(state.project && p.id === state.project.id) opt.selected = true;
+    el.projectSelect.appendChild(opt);
+  });
 
-    el.projectSelect.innerHTML = "";
-    list.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = p.name || "Untitled";
-      if(state.project && p.id === state.project.id) opt.selected = true;
-      el.projectSelect.appendChild(opt);
-    });
-
-    if(el.projectSelect.options.length === 0){
-      const p = defaultProject("New Song");
-      upsertProject(p);
-      state.project = p;
-      renderProjectsDropdown();
-    }
-  }
-
-  function applyProjectSettingsToUI(){
-    if(!state.project) return;
-
-    state.bpm = clamp(parseInt(state.project.bpm,10) || 95, 40, 220);
-    state.capo = clamp(parseInt(state.project.capo,10) || 0, 0, 12);
-
-    if(el.bpmInput) el.bpmInput.value = String(state.bpm);
-    if(el.capoInput) el.capoInput.value = String(state.capo);
-
-    updateKeyFromAllNotes();
-    refreshDisplayedNoteCells();
-  }
-
-  function loadProjectById(id){
-    const all = loadAllProjects().map(normalizeProject).filter(Boolean);
-    const p = all.find(x => x.id === id);
-    if(!p) return;
+  if(el.projectSelect.options.length === 0){
+    const p = defaultProject("New Song");
+    upsertProject(p);
     state.project = p;
-    localStorage.setItem(LS_CUR, p.id);
+    renderProjectsDropdown();
+  }
+}
 
-    applyProjectSettingsToUI();
-    renderAll();
+function applyProjectSettingsToUI(){
+  if(!state.project) return;
+
+  state.bpm = clamp(parseInt(state.project.bpm,10) || 95, 40, 220);
+  state.capo = clamp(parseInt(state.project.capo,10) || 0, 0, 12);
+
+  if(el.bpmInput) el.bpmInput.value = String(state.bpm);
+  if(el.capoInput) el.capoInput.value = String(state.capo);
+
+  updateKeyFromAllNotes();
+  refreshDisplayedNoteCells();
+}
+
+function loadProjectById(id){
+  const all = loadAllProjects().map(normalizeProject).filter(Boolean);
+  const p = all.find(x => x.id === id);
+  if(!p) return;
+  state.project = p;
+  localStorage.setItem(LS_CUR, p.id);
+
+  applyProjectSettingsToUI();
+  renderAll();
+}
+
+/***********************
+RHYMES
+***********************/
+function normalizeWord(w){
+  return String(w||"").toLowerCase().replace(/[^a-z']/g,"").trim();
+}
+
+function getLastWord(text){
+  const words = String(text||"").match(/[A-Za-z']+/g) || [];
+  return words.length ? words[words.length - 1] : "";
+}
+
+function getSeedFromTextarea(ta){
+  if(!ta) return "";
+
+  const card = ta.closest(".card");
+  if(card){
+    const allCards = Array.from(el.sheetBody.querySelectorAll(".card"));
+    const idx = allCards.indexOf(card);
+    const prev = allCards[idx - 1];
+    if(prev){
+      const prevTa = prev.querySelector("textarea.lyrics");
+      const prevLast = getLastWord(prevTa ? prevTa.value : "");
+      if(prevLast) return prevLast;
+    }
   }
 
-  /***********************
-   * RHYMES (CLEAN)
-   ***********************/
-  function normalizeWord(w){
-    return String(w||"").toLowerCase().replace(/[^a-z']/g,"").trim();
+  const currentLast = getLastWord(String(ta.value||""));
+  return currentLast || "";
+}
+
+async function fetchDatamuseRhymes(word, max = 24){
+  const w = normalizeWord(word);
+  if(!w) return [];
+  const url = `https://api.datamuse.com/words?rel_rhy=${encodeURIComponent(w)}&max=${max}`;
+  try{
+    const res = await fetch(url, { cache: "no-store" });
+    if(!res.ok) return [];
+    const data = await res.json();
+    return (data || []).map(x => x.word).filter(Boolean).slice(0, max);
+  }catch{
+    return [];
+  }
+}
+
+async function fetchDatamuseNearRhymes(word, max = 24){
+  const w = normalizeWord(word);
+  if(!w) return [];
+  const url = `https://api.datamuse.com/words?rel_nry=${encodeURIComponent(w)}&max=${max}`;
+  try{
+    const res = await fetch(url, { cache: "no-store" });
+    if(!res.ok) return [];
+    const data = await res.json();
+    return (data || []).map(x => x.word).filter(Boolean).slice(0, max);
+  }catch{
+    return [];
+  }
+}
+
+function insertWordIntoLyrics(word){
+  if(!lastLyricsTextarea){
+    const first = el.sheetBody.querySelector("textarea.lyrics");
+    if(first) lastLyricsTextarea = first;
+  }
+  if(!lastLyricsTextarea) return;
+
+  const ta = lastLyricsTextarea;
+  ta.focus();
+
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? ta.value.length;
+
+  const before = ta.value.slice(0, start);
+  const after = ta.value.slice(end);
+
+  const needsSpaceBefore = before.length && !/\s$/.test(before);
+  const needsSpaceAfter = after.length && !/^\s/.test(after);
+
+  const insert = (needsSpaceBefore ? " " : "") + word + (needsSpaceAfter ? " " : "");
+  ta.value = before + insert + after;
+
+  const newPos = (before + insert).length;
+  ta.selectionStart = ta.selectionEnd = newPos;
+
+  ta.dispatchEvent(new Event("input", { bubbles:true }));
+}
+
+async function renderRhymes(seed){
+  const word = normalizeWord(seed);
+
+  el.rhymeWords.innerHTML = "";
+  el.rhymeTitle.textContent = word ? `Rhymes: ${word}` : "Rhymes";
+
+  const status = document.createElement("div");
+  status.style.color = "#666";
+  status.style.fontWeight = "900";
+  status.textContent = word ? "Loading…" : "Tap a lyrics box and type a line.";
+  el.rhymeWords.appendChild(status);
+
+  if(!word) return;
+
+  let list = await fetchDatamuseRhymes(word, 24);
+  if(!list || list.length === 0){
+    list = await fetchDatamuseNearRhymes(word, 24);
+  }
+  list = (list || []).filter(Boolean);
+
+  el.rhymeWords.innerHTML = "";
+
+  if(list.length === 0){
+    status.textContent = "No good rhymes found (try another word).";
+    el.rhymeWords.appendChild(status);
+    return;
   }
 
-  function getLastWord(text){
-    const words = String(text||"").match(/[A-Za-z']+/g) || [];
-    return words.length ? words[words.length - 1] : "";
+  list.forEach(w => {
+    const b = document.createElement("div");
+    b.className = "rWord";
+    b.textContent = w;
+    b.addEventListener("click", () => insertWordIntoLyrics(w));
+    el.rhymeWords.appendChild(b);
+  });
+}
+
+function refreshRhymesFromActive(){
+  if(el.rhymeDock.style.display !== "block") return;
+  const seed = getSeedFromTextarea(lastLyricsTextarea);
+  renderRhymes(seed);
+}
+
+function toggleRhymeDock(show){
+  el.rhymeDock.style.display = show ? "block" : "none";
+  if(show) refreshRhymesFromActive();
+}
+
+/***********************
+Render all
+***********************/
+function renderAll(){
+  renderProjectsDropdown();
+  renderTabs();
+  renderSheet();
+  renderRecordings();
+  renderInstrumentUI();
+  renderDrumUI();
+  updateKeyFromAllNotes();
+  setRecordUI();
+  clearTick();
+  applyTick();
+  updateFullIfVisible();
+  refreshRhymesFromActive();
+  refreshDisplayedNoteCells();
+}
+/***********************
+SECTION paging (swipe left/right)
+Order loops back to Full after CHORUS 3
+***********************/
+const SECTION_PAGES = SECTIONS.slice(); // includes "Full" first
+
+function isEditableEl(target){
+  if(!target) return false;
+  const tag = (target.tagName || "").toUpperCase();
+  if(tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return true;
+  if(target.isContentEditable) return true;
+  return false;
+}
+
+function goToSection(sec){
+  if(!sec || sec === state.currentSection) return;
+
+  state.currentSection = sec;
+  state.playCardIndex = null;
+  state.lastAutoBar = -1;
+
+  renderTabs();     // now no-op but keeps code consistent
+  renderSheet();
+  clearTick();
+  applyTick();
+
+  lastActiveCardEl = null;
+  lastLyricsTextarea = null;
+  refreshRhymesFromActive();
+  refreshDisplayedNoteCells();
+  updateFullIfVisible();
+
+  // Optional: snap view so the sheet header is visible (feels like “page change”)
+  try{
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }catch{
+    window.scrollTo(0, 0);
+  }
+}
+
+function nextSection(){
+  const i = SECTION_PAGES.indexOf(state.currentSection);
+  const next = SECTION_PAGES[(i + 1) % SECTION_PAGES.length];
+  goToSection(next);
+}
+
+function prevSection(){
+  const i = SECTION_PAGES.indexOf(state.currentSection);
+  const prev = SECTION_PAGES[(i - 1 + SECTION_PAGES.length) % SECTION_PAGES.length];
+  goToSection(prev);
+}
+
+/***********************
+Swipe detection (horizontal)
+***********************/
+function installSectionSwipe(){
+  let sx=0, sy=0, t0=0, tracking=false, locked=false;
+  let lastFire = 0;
+
+  const MIN_X = 60;          // min horizontal travel
+  const MAX_MS = 800;        // ignore super slow drags
+  const DOMINANCE = 1.35;    // dx must dominate dy
+
+  function onStart(e){
+    if(state.rhymeDock && el.rhymeDock && el.rhymeDock.style.display === "block") return;
+
+    const pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    const target = e.target;
+
+    // ✅ don’t page-switch when gesture starts in a control (typing/editing safety)
+    if(isEditableEl(target) || (target && target.closest && target.closest("#panelBody"))) return;
+
+    sx = pt.clientX; sy = pt.clientY; t0 = performance.now();
+    tracking = true;
+    locked = false;
   }
 
-  // ✅ FIX: ALWAYS rhyme from previous card's last word (not the current box)
-  function getSeedFromTextarea(ta){
-    if(!ta) return "";
+  function onMove(e){
+    if(!tracking) return;
+    const pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
 
-    const card = ta.closest(".card");
-    if(card){
-      const allCards = Array.from(el.sheetBody.querySelectorAll(".card"));
-      const idx = allCards.indexOf(card);
-      const prev = allCards[idx - 1];
-      if(prev){
-        const prevTa = prev.querySelector("textarea.lyrics");
-        const prevLast = getLastWord(prevTa ? prevTa.value : "");
-        if(prevLast) return prevLast;
+    const dx = pt.clientX - sx;
+    const dy = pt.clientY - sy;
+
+    // Once we see a clear horizontal intention, lock it
+    if(!locked){
+      if(Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * DOMINANCE){
+        locked = true;
+      }else if(Math.abs(dy) > 18 && Math.abs(dy) > Math.abs(dx)){
+        // Vertical scroll intent → abort
+        tracking = false;
+        return;
       }
     }
-
-    // If there is no previous card (first line), fall back gracefully:
-    const currentLast = getLastWord(String(ta.value||""));
-    return currentLast || "";
   }
 
-  async function fetchDatamuseRhymes(word, max = 24){
-    const w = normalizeWord(word);
-    if(!w) return [];
-    const url = `https://api.datamuse.com/words?rel_rhy=${encodeURIComponent(w)}&max=${max}`;
-    try{
-      const res = await fetch(url, { cache: "no-store" });
-      if(!res.ok) return [];
-      const data = await res.json();
-      return (data || []).map(x => x.word).filter(Boolean).slice(0, max);
-    }catch{
-      return [];
+  function onEnd(e){
+    if(!tracking) return;
+    tracking = false;
+
+    const pt = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : e;
+    const dx = pt.clientX - sx;
+    const dy = pt.clientY - sy;
+    const dt = performance.now() - t0;
+
+    if(dt > MAX_MS) return;
+    if(Math.abs(dx) < MIN_X) return;
+    if(Math.abs(dx) < Math.abs(dy) * DOMINANCE) return;
+
+    // Cooldown so one swipe doesn’t fire twice
+    const nowMs = performance.now();
+    if(nowMs - lastFire < 250) return;
+    lastFire = nowMs;
+
+    if(dx < 0) nextSection();  // swipe left → next page
+    else prevSection();        // swipe right → previous page
+  }
+
+  // Touch + pointer (covers most devices)
+  document.addEventListener("touchstart", onStart, { passive:true });
+  document.addEventListener("touchmove", onMove, { passive:true });
+  document.addEventListener("touchend", onEnd, { passive:true });
+
+  document.addEventListener("pointerdown", onStart, { passive:true });
+  document.addEventListener("pointermove", onMove, { passive:true });
+  document.addEventListener("pointerup", onEnd, { passive:true });
+
+  // Desktop convenience: arrow keys (when not typing)
+  document.addEventListener("keydown", (e)=>{
+    if(isEditableEl(document.activeElement)) return;
+    if(e.key === "ArrowLeft"){ prevSection(); }
+    if(e.key === "ArrowRight"){ nextSection(); }
+  });
+}
+
+/***********************
+Wiring
+***********************/
+function wire(){
+  el.togglePanelBtn.addEventListener("click", () => {
+    const hidden = !el.panelBody.classList.contains("hidden");
+    setPanelHidden(hidden);
+  });
+
+  el.autoSplitBtn.addEventListener("click", () => {
+    state.autoSplit = !state.autoSplit;
+    el.autoSplitBtn.classList.toggle("active", state.autoSplit);
+    el.autoSplitBtn.textContent = "AutoSplit: " + (state.autoSplit ? "ON" : "OFF");
+  });
+
+  if(el.exportBtn){
+    el.exportBtn.addEventListener("click", exportFullPreview);
+  }
+
+  function restartClockIfRunning(){
+    if(shouldClockRun()){
+      startBeatClock();
     }
   }
 
-  async function fetchDatamuseNearRhymes(word, max = 24){
-    const w = normalizeWord(word);
-    if(!w) return [];
-    const url = `https://api.datamuse.com/words?rel_nry=${encodeURIComponent(w)}&max=${max}`;
-    try{
-      const res = await fetch(url, { cache: "no-store" });
-      if(!res.ok) return [];
-      const data = await res.json();
-      return (data || []).map(x => x.word).filter(Boolean).slice(0, max);
-    }catch{
-      return [];
-    }
-  }
+  function commitBpm(){
+    let n = parseInt(el.bpmInput.value, 10);
+    if(!Number.isFinite(n)) n = state.bpm || 95;
+    n = clamp(n, 40, 220);
 
-  function insertWordIntoLyrics(word){
-    if(!lastLyricsTextarea){
-      const first = el.sheetBody.querySelector("textarea.lyrics");
-      if(first) lastLyricsTextarea = first;
-    }
-    if(!lastLyricsTextarea) return;
+    state.bpm = n;
+    el.bpmInput.value = String(n);
 
-    const ta = lastLyricsTextarea;
-    ta.focus();
-
-    const start = ta.selectionStart ?? ta.value.length;
-    const end = ta.selectionEnd ?? ta.value.length;
-
-    const before = ta.value.slice(0, start);
-    const after = ta.value.slice(end);
-
-    const needsSpaceBefore = before.length && !/\s$/.test(before);
-    const needsSpaceAfter = after.length && !/^\s/.test(after);
-
-    const insert = (needsSpaceBefore ? " " : "") + word + (needsSpaceAfter ? " " : "");
-    ta.value = before + insert + after;
-
-    const newPos = (before + insert).length;
-    ta.selectionStart = ta.selectionEnd = newPos;
-
-    ta.dispatchEvent(new Event("input", { bubbles:true }));
-  }
-
-  async function renderRhymes(seed){
-    const word = normalizeWord(seed);
-
-    el.rhymeWords.innerHTML = "";
-    el.rhymeTitle.textContent = word ? `Rhymes: ${word}` : "Rhymes";
-
-    const status = document.createElement("div");
-    status.style.color = "#666";
-    status.style.fontWeight = "900";
-    status.textContent = word ? "Loading…" : "Tap a lyrics box and type a line.";
-    el.rhymeWords.appendChild(status);
-
-    if(!word) return;
-
-    let list = await fetchDatamuseRhymes(word, 24);
-    if(!list || list.length === 0){
-      list = await fetchDatamuseNearRhymes(word, 24);
-    }
-    list = (list || []).filter(Boolean);
-
-    el.rhymeWords.innerHTML = "";
-
-    if(list.length === 0){
-      status.textContent = "No good rhymes found (try another word).";
-      el.rhymeWords.appendChild(status);
-      return;
+    if(state.project){
+      state.project.bpm = n;
+      upsertProject(state.project);
     }
 
-    list.forEach(w => {
-      const b = document.createElement("div");
-      b.className = "rWord";
-      b.textContent = w;
-      b.addEventListener("click", () => insertWordIntoLyrics(w));
-      el.rhymeWords.appendChild(b);
-    });
+    if(state.drumsOn) startDrums();
+    restartClockIfRunning();
   }
 
-  function refreshRhymesFromActive(){
-    if(el.rhymeDock.style.display !== "block") return;
-    const seed = getSeedFromTextarea(lastLyricsTextarea);
-    renderRhymes(seed);
-  }
+  el.bpmInput.addEventListener("input", () => {
+    const raw = el.bpmInput.value;
+    if(raw === "") return;
 
-  function toggleRhymeDock(show){
-    el.rhymeDock.style.display = show ? "block" : "none";
-    if(show) refreshRhymesFromActive();
-  }
-
-  /***********************
-   * Render all
-   ***********************/
-  function renderAll(){
-    renderProjectsDropdown();
-    renderTabs();
-    renderSheet();
-    renderRecordings();
-    renderInstrumentUI();
-    renderDrumUI();
-    updateKeyFromAllNotes();
-    setRecordUI();
-    clearTick();
-    applyTick();
-    updateFullIfVisible();
-    refreshRhymesFromActive();
-
-    refreshDisplayedNoteCells();
-  }
-
-  /***********************
-   * Wiring
-   ***********************/
-  function wire(){
-    el.togglePanelBtn.addEventListener("click", () => {
-      const hidden = !el.panelBody.classList.contains("hidden");
-      setPanelHidden(hidden);
-    });
-
-    el.autoSplitBtn.addEventListener("click", () => {
-      state.autoSplit = !state.autoSplit;
-      el.autoSplitBtn.classList.toggle("active", state.autoSplit);
-      el.autoSplitBtn.textContent = "AutoSplit: " + (state.autoSplit ? "ON" : "OFF");
-    });
-
-    // BPM
-    function commitBpm(){
-      let n = parseInt(el.bpmInput.value, 10);
-      if(!Number.isFinite(n)) n = state.bpm || 95;
-      n = clamp(n, 40, 220);
-
+    const n = parseInt(raw, 10);
+    if(Number.isFinite(n) && n >= 40 && n <= 220){
       state.bpm = n;
-      el.bpmInput.value = String(n);
-
       if(state.project){
         state.project.bpm = n;
         upsertProject(state.project);
       }
-
       if(state.drumsOn) startDrums();
+      restartClockIfRunning();
     }
+  });
 
-    el.bpmInput.addEventListener("input", () => {
-      const raw = el.bpmInput.value;
-      if(raw === "") return;
+  el.bpmInput.addEventListener("change", commitBpm);
+  el.bpmInput.addEventListener("blur", commitBpm);
 
-      const n = parseInt(raw, 10);
-      if(Number.isFinite(n) && n >= 40 && n <= 220){
-        state.bpm = n;
-        if(state.project){
-          // persist draft so it can’t snap back on a render
-          state.project.bpm = n;
-          upsertProject(state.project);
-        }
-        if(state.drumsOn) startDrums();
-      }
-    });
+  function commitCapo(){
+    let n = parseInt(el.capoInput.value, 10);
+    if(!Number.isFinite(n)) n = 0;
+    n = clamp(n, 0, 12);
 
-    el.bpmInput.addEventListener("change", commitBpm);
-    el.bpmInput.addEventListener("blur", commitBpm);
+    state.capo = n;
+    el.capoInput.value = String(n);
 
-    // ✅ CAPO (persist immediately so it can’t “snap back”)
-    function commitCapo(){
-      let n = parseInt(el.capoInput.value, 10);
-      if(!Number.isFinite(n)) n = 0;
-      n = clamp(n, 0, 12);
-
-      state.capo = n;
-      el.capoInput.value = String(n);
-
-      if(state.project){
-        state.project.capo = n;
-        upsertProject(state.project);
-      }
-
-      updateKeyFromAllNotes();
-      updateFullIfVisible();
-      refreshDisplayedNoteCells();
-    }
-
-    el.capoInput.addEventListener("input", () => {
-      const raw = el.capoInput.value;
-      if(raw === "") return;
-
-      const n0 = parseInt(raw, 10);
-      if(!Number.isFinite(n0)) return;
-
-      const n = clamp(n0, 0, 12);
-
-      // update state + persist immediately
-      state.capo = n;
-      if(state.project){
-        state.project.capo = n;
-        upsertProject(state.project);
-      }
-
-      updateKeyFromAllNotes();
-      updateFullIfVisible();
-      refreshDisplayedNoteCells();
-    });
-
-    el.capoInput.addEventListener("change", commitCapo);
-    el.capoInput.addEventListener("blur", commitCapo);
-
-    function handleInstrument(which){
-      ensureCtx();
-      if(state.instrument === which && state.instrumentOn){
-        stopInstrument();
-      }else{
-        state.instrument = which;
-        startInstrument();
-      }
-      renderInstrumentUI();
-    }
-    el.instAcoustic.addEventListener("click", () => handleInstrument("acoustic"));
-    el.instElectric.addEventListener("click", () => handleInstrument("electric"));
-    el.instPiano.addEventListener("click", () => handleInstrument("piano"));
-
-    function handleDrums(which){
-      ensureCtx();
-      if(state.drumStyle === which && state.drumsOn){
-        stopDrums();
-      }else{
-        state.drumStyle = which;
-        startDrums();
-      }
-      renderDrumUI();
-    }
-    el.drumRock.addEventListener("click", () => handleDrums("rock"));
-    el.drumHardRock.addEventListener("click", () => handleDrums("hardrock"));
-    el.drumPop.addEventListener("click", () => handleDrums("pop"));
-    el.drumRap.addEventListener("click", () => handleDrums("rap"));
-
-    el.mRock.addEventListener("click", () => handleDrums("rock"));
-    el.mHardRock.addEventListener("click", () => handleDrums("hardrock"));
-    el.mPop.addEventListener("click", () => handleDrums("pop"));
-    el.mRap.addEventListener("click", () => handleDrums("rap"));
-
-    el.autoPlayBtn.addEventListener("click", () => setAutoScroll(!state.autoScrollOn));
-    el.mScrollBtn.addEventListener("click", () => setAutoScroll(!state.autoScrollOn));
-
-    el.recordBtn.addEventListener("click", toggleRecording);
-    el.mRecordBtn.addEventListener("click", toggleRecording);
-
-    el.sortSelect.addEventListener("change", renderProjectsDropdown);
-    el.projectSelect.addEventListener("change", () => loadProjectById(el.projectSelect.value));
-
-    el.newProjectBtn.addEventListener("click", () => {
-      const name = prompt("New project name:", "New Song");
-      if(name === null) return;
-      const p = defaultProject(name.trim() || "New Song");
-      upsertProject(p);
-      state.project = p;
-      state.currentSection = "Full";
-      applyProjectSettingsToUI();
-      renderAll();
-    });
-
-    el.renameProjectBtn.addEventListener("click", () => {
-      if(!state.project) return;
-      const name = prompt("Project name:", state.project.name || "");
-      if(name === null) return;
-      state.project.name = name.trim() || "Untitled";
+    if(state.project){
+      state.project.capo = n;
       upsertProject(state.project);
-      renderProjectsDropdown();
-    });
+    }
 
-    el.deleteProjectBtn.addEventListener("click", () => {
-      if(!state.project) return;
-      if(!confirm(`Delete project "${state.project.name}"?`)) return;
-      deleteProjectById(state.project.id);
-      state.project = getCurrentProject();
-      state.currentSection = "Full";
-      applyProjectSettingsToUI();
-      renderAll();
-    });
-
-    el.rBtn.addEventListener("click", () => {
-      const showing = el.rhymeDock.style.display === "block";
-      toggleRhymeDock(!showing);
-    });
-    el.hideRhymeBtn.addEventListener("click", () => toggleRhymeDock(false));
+    updateKeyFromAllNotes();
+    updateFullIfVisible();
+    refreshDisplayedNoteCells();
   }
 
-  /***********************
-   * Init
-   ***********************/
-  function init(){
-    state.project = getCurrentProject();
+  el.capoInput.addEventListener("input", () => {
+    const raw = el.capoInput.value;
+    if(raw === "") return;
 
+    const n0 = parseInt(raw, 10);
+    if(!Number.isFinite(n0)) return;
+
+    const n = clamp(n0, 0, 12);
+
+    state.capo = n;
+    if(state.project){
+      state.project.capo = n;
+      upsertProject(state.project);
+    }
+
+    updateKeyFromAllNotes();
+    updateFullIfVisible();
+    refreshDisplayedNoteCells();
+  });
+
+  el.capoInput.addEventListener("change", commitCapo);
+  el.capoInput.addEventListener("blur", commitCapo);
+
+  function handleInstrument(which){
+    ensureCtx();
+    if(state.instrument === which && state.instrumentOn){
+      stopInstrument();
+    }else{
+      state.instrument = which;
+      startInstrument();
+    }
+    renderInstrumentUI();
+  }
+
+  el.instAcoustic.addEventListener("click", () => handleInstrument("acoustic"));
+  el.instElectric.addEventListener("click", () => handleInstrument("electric"));
+  el.instPiano.addEventListener("click", () => handleInstrument("piano"));
+
+  if(el.instDots){
+    el.instDots.addEventListener("click", () => {
+      state.noteLenMode = (state.noteLenMode === "eighth") ? "half" : "eighth";
+      renderNoteLenUI();
+    });
+  }
+
+  if(el.instTieBar){
+    el.instTieBar.addEventListener("click", () => {
+      state.noteLenMode = (state.noteLenMode === "bar") ? "half" : "bar";
+      renderNoteLenUI();
+    });
+  }
+
+  function handleDrums(which){
+    ensureCtx();
+    if(state.drumStyle === which && state.drumsOn){
+      stopDrums();
+    }else{
+      state.drumStyle = which;
+      startDrums();
+    }
+    renderDrumUI();
+  }
+
+  el.drumRock.addEventListener("click", () => handleDrums("rock"));
+  el.drumHardRock.addEventListener("click", () => handleDrums("hardrock"));
+  el.drumPop.addEventListener("click", () => handleDrums("pop"));
+  el.drumRap.addEventListener("click", () => handleDrums("rap"));
+
+  el.mRock.addEventListener("click", () => handleDrums("rock"));
+  el.mHardRock.addEventListener("click", () => handleDrums("hardrock"));
+  el.mPop.addEventListener("click", () => handleDrums("pop"));
+  el.mRap.addEventListener("click", () => handleDrums("rap"));
+
+  el.autoPlayBtn.addEventListener("click", () => setAutoScroll(!state.autoScrollOn));
+  el.mScrollBtn.addEventListener("click", () => setAutoScroll(!state.autoScrollOn));
+
+  el.recordBtn.addEventListener("click", toggleRecording);
+  el.mRecordBtn.addEventListener("click", toggleRecording);
+
+  el.sortSelect.addEventListener("change", renderProjectsDropdown);
+  el.projectSelect.addEventListener("change", () => loadProjectById(el.projectSelect.value));
+
+  el.newProjectBtn.addEventListener("click", () => {
+    const name = prompt("New project name:", "New Song");
+    if(name === null) return;
+    const p = defaultProject(name.trim() || "New Song");
+    upsertProject(p);
+    state.project = p;
+    state.currentSection = "Full";
     applyProjectSettingsToUI();
-
-    el.autoSplitBtn.textContent = "AutoSplit: ON";
-    el.autoSplitBtn.classList.add("active");
-
-    setPanelHidden(false);
-    setAutoScroll(false);
-
-    state.instrumentOn = false;
-    state.drumsOn = false;
-
-    setRecordUI();
-    wire();
     renderAll();
+  });
 
-    stopBeatClock();
-  }
+  el.renameProjectBtn.addEventListener("click", () => {
+    if(!state.project) return;
+    const name = prompt("Project name:", state.project.name || "");
+    if(name === null) return;
+    state.project.name = name.trim() || "Untitled";
+    upsertProject(state.project);
+    renderProjectsDropdown();
+  });
 
-  init();
+  el.deleteProjectBtn.addEventListener("click", () => {
+    if(!state.project) return;
+    if(!confirm(`Delete project "${state.project.name}"?`)) return;
+    deleteProjectById(state.project.id);
+    state.project = getCurrentProject();
+    state.currentSection = "Full";
+    applyProjectSettingsToUI();
+    renderAll();
+  });
+if(el.uploadAudioBtn){
+  el.uploadAudioBtn.addEventListener("click", async () => {
+    // If audio is currently syncing, this button becomes STOP
+    if(state.audioSyncOn){
+      stopAudioSync();
+      return;
+    }
+    // Otherwise it uploads and can auto-play/sync
+    await uploadAudioFile();
+  });
+}
+
+if(el.beat1Btn){
+  el.beat1Btn.addEventListener("click", () => {
+    markBeat1Now();
+  });
+}
+
+
+  el.rBtn.addEventListener("click", () => {
+    const showing = el.rhymeDock.style.display === "block";
+    toggleRhymeDock(!showing);
+  });
+  el.hideRhymeBtn.addEventListener("click", () => toggleRhymeDock(false));
+}
+
+/***********************
+Init
+***********************/
+function init(){
+  state.project = getCurrentProject();
+
+  applyProjectSettingsToUI();
+
+  el.autoSplitBtn.textContent = "AutoSplit: ON";
+  el.autoSplitBtn.classList.add("active");
+
+  setPanelHidden(false);
+  setAutoScroll(false);
+
+  state.instrumentOn = false;
+  state.drumsOn = false;
+
+  renderNoteLenUI();
+  setRecordUI();
+  wire();
+  renderAll();
+  installSectionSwipe();
+
+  stopBeatClock();
+}
+
+init();
 })();
