@@ -400,6 +400,8 @@ function stopHorse(){
       img.style.animation = "";
     }catch{}
   });
+  const parked = document.getElementById("horseParked");
+if(parked) parked.style.visibility = "visible";
 }
 
 function horseShouldRun(){
@@ -408,6 +410,9 @@ function horseShouldRun(){
 }
 
 function triggerHorseRun(){
+  const parked = document.getElementById("horseParked");
+if(parked) parked.style.visibility = "hidden";
+
   if(!horseShouldRun()) return;
   if(!el.horseRight || !el.horseLeft) return;
 
