@@ -1501,6 +1501,18 @@ function scrollToTopOfSheet(){
   try{ window.scrollTo({ top:0, behavior:"auto" }); }
   catch{ window.scrollTo(0,0); }
 }
+/***********************
+Playback card helper (used by AutoScroll + tick + instrument)
+***********************/
+function getPlaybackCard(){
+  const cards = getCards();
+  if(!cards.length) return null;
+
+  if(state.playCardIndex === null || state.playCardIndex === undefined) return null;
+
+  const i = clamp(state.playCardIndex|0, 0, cards.length - 1);
+  return cards[i] || null;
+}
 
 // Returns the scrolling viewport element for cards (your #sheetBody)
 function getScrollViewport(){
