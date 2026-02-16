@@ -1,4 +1,4 @@
-<!-- index.html (FULL REPLACE MAIN v49 - fixes: parked horse + Hide button + removes broken stray HTML) -->
+<!-- index.html (FULL REPLACE MAIN v49 - parked horse size + Full Preview fills grey space) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,13 +6,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="theme-color" content="#e9e9ea"/>
   <title>Song Rider Pro</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=60"/>
+  <link rel="manifest" href="./manifest.webmanifest?v=61"/>
 
   <style>
-   html, body {
-  height: 100%;
-}
-
     :root{
       --bg:#e9e9ea;
       --card:#ffffff;
@@ -34,10 +30,27 @@
 
       /* ✅ OFFLINE title font (no internet needed) */
       --titleFont: Impact, Haettenschweiler, "Arial Black", "Franklin Gothic Heavy", var(--sans);
+
+      /* ✅ ONE source of truth for horse height (GIF + parked horse) */
+      --horseH: 74px;
+
+      /* ✅ gets set by the tiny script below */
+      --headerH: 160px;
     }
 
-    *{ box-sizing:border-box; }
-    body{ margin:0; font-family:var(--sans); background:var(--bg); color:var(--ink); }
+    *, *::before, *::after{ box-sizing:border-box; }
+
+    /* ✅ IMPORTANT: flex page so main can fill screen */
+    html, body{ height:100%; }
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background:var(--bg);
+      color:var(--ink);
+      display:flex;
+      flex-direction:column;
+      min-height:100vh;
+    }
 
     header{
       position:sticky; top:0; z-index:51;
@@ -51,7 +64,7 @@
       position:fixed;
       left:0; right:0;
       top:6px;
-      height:74px;
+      height:var(--horseH);
       z-index:120;
       pointer-events:none;
       overflow:visible;
@@ -59,7 +72,7 @@
     .horseWrap img{
       position:absolute;
       top:0;
-      height:74px;
+      height:var(--horseH);
       width:auto;
       display:none;
       will-change:transform;
@@ -86,18 +99,6 @@
       animation-name: horseRunLeft;
       animation-timing-function: linear;
       animation-fill-mode: both;
-    }
-
-    /* FULL page: push preview to the bottom (used by app.js layout) */
-    .fullPreviewBlock{
-      margin-top:auto;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    textarea.fullBox{
-      flex:1;
-      min-height:0;
     }
 
     .panel{
@@ -140,18 +141,12 @@
     .srp-blue{ color: var(--noteBlue); }
     .srp-green{ color: var(--backbeatGreen); }
 
-    /* ✅ parked horse beside title (safe container) */
-    .brandRow{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:0;
-    }
+    /* ✅ Parked horse: same height as GIF horse */
     #horseParked{
-      height:28px;
+      height: var(--horseH);
       width:auto;
       display:block;
-      flex:0 0 auto;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,.10));
     }
 
     .miniBar{ display:none; padding:10px 12px; border-bottom:1px solid rgba(0,0,0,.06); }
@@ -312,43 +307,33 @@
       font-size:15px;
     }
 
-    .tabs{
+    .tabs{ display:none; }
+
+    /* ✅ main MUST be flex:1 so it fills below header */
+    main{
+      padding:12px 12px 110px;
+      max-width:1100px;
+      margin:0 auto;
+      width:100%;
+      flex:1;
       display:flex;
-      gap:8px;
-      flex-wrap:nowrap;
-      overflow-x:auto;
-      -webkit-overflow-scrolling: touch;
-      margin:12px 0 10px;
-      padding-bottom:2px;
+      min-height:0;
     }
-    .tabs.hidden{ display:none; }
-    .tab{
-      padding:10px 12px;
-      border-radius:999px;
-      border:1px solid rgba(0,0,0,.12);
-      background:#fff;
-      cursor:pointer;
-      user-select:none;
-      font-weight:1100;
-      font-size:13px;
-      flex:0 0 auto;
-      white-space:nowrap;
-    }
-    .tab.active{ background:#111; color:#fff; border-color:#111; }
 
-    main{ padding:12px 12px 110px; max-width:1100px; margin:0 auto; }
-
+    /* ✅ sheet fills remaining viewport height */
     .sheet{
       background:var(--card);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
       border:1px solid rgba(0,0,0,.06);
       overflow:hidden;
-      min-height:220px;
 
+      flex:1;
       display:flex;
       flex-direction:column;
+      min-height:calc(100vh - var(--headerH) - 24px);
     }
+
     .sheetHeader{
       padding:10px 12px;
       border-bottom:1px solid rgba(0,0,0,.06);
@@ -365,12 +350,21 @@
       flex-wrap:wrap;
     }
 
+    /* ✅ sheetBody must stretch for Full view */
+    #sheetBody{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+    }
+
     .cards{
       padding:0 12px 14px;
       display:flex;
       flex-direction:column;
       gap:12px;
     }
+
     .card{
       border:1px solid rgba(0,0,0,.10);
       border-radius:14px;
@@ -475,24 +469,28 @@
       outline: none;
     }
 
+    /* ✅ FULL PAGE layout: make Preview eat remaining space */
     .fullBoxWrap{
       padding:12px;
       display:flex;
       flex-direction:column;
       gap:10px;
       flex:1;
+      min-height:0;
     }
 
-    #sheetBody{
+    .fullPreviewBlock{
+      margin-top:auto;
       display:flex;
       flex-direction:column;
-      min-height:65vh;
+      gap:10px;
       flex:1;
+      min-height:0;
     }
 
     textarea.fullBox{
       width:100%;
-      min-height:22vh;
+      min-height:18vh;  /* still usable */
       padding:12px;
       border-radius:14px;
       border:1px solid rgba(0,0,0,.12);
@@ -505,10 +503,11 @@
       word-break:break-word;
       overflow-wrap:anywhere;
     }
+
     textarea.fullPreview{
       width:100%;
-      min-height:22vh;
-      flex:1;
+      flex:1;          /* ✅ THIS is the “fill the grey space” part */
+      min-height:0;    /* ✅ REQUIRED for flex children */
       padding:12px;
       border-radius:14px;
       border:1px solid rgba(0,0,0,.12);
@@ -587,76 +586,70 @@
 </head>
 
 <body>
-  <!-- ✅ Horse GIFs (runner overlay) -->
+  <!-- ✅ Horse GIFs -->
   <div class="horseWrap" id="horseWrap" aria-hidden="true">
-    <img id="horseRight" src="./Horserunsright.gif?v=60" alt="Horse runs right"/>
-    <img id="horseLeft"  src="./Horserunsleft.gif?v=60"  alt="Horse runs left"/>
+    <img id="horseRight" src="./Horserunsright.gif?v=61" alt="Horse runs right"/>
+    <img id="horseLeft"  src="./Horserunsleft.gif?v=61"  alt="Horse runs left"/>
   </div>
 
   <header>
     <div class="panel">
       <div class="panelTop">
-        <div class="brandRow">
+        <div style="display:flex; align-items:center; gap:10px;">
           <div class="left" aria-label="Song Rider Pro">
             <span class="srp-pink">Song</span>
             <span class="srp-blue">Rider</span>
             <span class="srp-green">Pro</span>
           </div>
 
-          <!-- 🐎 Parked Horse (FIXED: only ONE img tag, no broken stray text) -->
-          <img
-            id="horseParked"
-            src="./horse-parked.png?v=60"
-            alt="Horse"
-            onerror="this.style.display='none';"
-          />
+          <!-- ✅ Parked horse (size controlled by #horseParked CSS) -->
+          <img id="horseParked" src="./horse-parked.png" alt="Horse"/>
         </div>
 
-        <!-- ✅ Hide button restored -->
-        <button class="btn secondary" id="togglePanelBtn" type="button">Hide</button>
+        <button class="btn secondary" id="togglePanelBtn">Hide</button>
       </div>
 
       <div class="miniBar" id="miniBar">
         <div class="row nowrap" style="padding:0;">
-          <button class="pill" id="mRock" type="button">Rock</button>
-          <button class="pill" id="mHardRock" type="button">Hard Rock</button>
-          <button class="pill" id="mPop" type="button">Pop</button>
-          <button class="pill" id="mRap" type="button">Rap</button>
-          <button class="iconCircle scrollCircle" id="mScrollBtn" title="AutoScroll" type="button">⇅</button>
-          <button class="btn rec" id="mRecordBtn" type="button">Record</button>
+          <button class="pill" id="mRock">Rock</button>
+          <button class="pill" id="mHardRock">Hard Rock</button>
+          <button class="pill" id="mPop">Pop</button>
+          <button class="pill" id="mRap">Rap</button>
+          <button class="iconCircle scrollCircle" id="mScrollBtn" title="AutoScroll">⇅</button>
+          <button class="btn rec" id="mRecordBtn">Record</button>
         </div>
       </div>
 
       <div id="panelBody">
         <div class="row">
-          <button class="tinyBtn" id="autoSplitBtn" type="button">AutoSplit</button>
+          <button class="tinyBtn" id="autoSplitBtn">AutoSplit</button>
           <div class="tinyField"><input id="bpmInput" type="number" min="40" max="220" step="1" value="95"/></div>
           <div class="tinyField"><input id="capoInput" type="number" min="0" max="12" step="1" value="0"/></div>
           <div class="tinyField key"><input id="keyOutput" type="text" readonly value="—"/></div>
         </div>
 
         <div class="row" style="border-top:1px solid rgba(0,0,0,.06);">
-          <button class="pill" id="instAcoustic" type="button">Acoustic</button>
-          <button class="pill" id="instElectric" type="button">Electric</button>
-          <button class="pill" id="instPiano" type="button">Piano</button>
+          <button class="pill" id="instAcoustic">Acoustic</button>
+          <button class="pill" id="instElectric">Electric</button>
+          <button class="pill" id="instPiano">Piano</button>
 
-          <button class="tinyBtn" id="instDots" title="Note length: fixed 1/8 (… )" type="button">...</button>
-          <button class="tinyBtn" id="instTieBar" title="Note length: tie to next note across cards ( _ )" type="button">_</button>
+          <button class="tinyBtn" id="instDots" title="Note length: fixed 1/8 (… )">...</button>
+          <button class="tinyBtn" id="instTieBar" title="Note length: tie to next note across cards ( _ )">_</button>
 
           <div style="flex:1 1 auto;"></div>
-          <button class="exportBtn" id="exportBtn" title="Export (.txt + printable colored .html)" type="button">Export</button>
+          <button class="exportBtn" id="exportBtn" title="Export (.txt + printable colored .html)">Export</button>
         </div>
 
         <div class="row nowrap" style="border-top:1px solid rgba(0,0,0,.06);">
-          <button class="pill" id="drumRock" type="button">Rock</button>
-          <button class="pill" id="drumHardRock" type="button">Hard Rock</button>
-          <button class="pill" id="drumPop" type="button">Pop</button>
-          <button class="pill" id="drumRap" type="button">Rap</button>
+          <button class="pill" id="drumRock">Rock</button>
+          <button class="pill" id="drumHardRock">Hard Rock</button>
+          <button class="pill" id="drumPop">Pop</button>
+          <button class="pill" id="drumRap">Rap</button>
 
-          <button class="iconCircle scrollCircle" id="autoPlayBtn" title="AutoScroll" type="button">⇅</button>
-          <button class="iconCircle recCircle" id="recordBtn" title="Record" type="button"></button>
-          <button class="iconCircle" id="uploadAudioBtn" title="Upload audio (tap). Stop sync (when playing)." type="button">⬆️</button>
-          <button class="iconCircle" id="beat1Btn" title="Mark Beat 1 now (while MP3 plays)" type="button">1</button>
+          <button class="iconCircle scrollCircle" id="autoPlayBtn" title="AutoScroll">⇅</button>
+          <button class="iconCircle recCircle" id="recordBtn" title="Record"></button>
+          <button class="iconCircle" id="uploadAudioBtn" title="Upload audio (tap). Stop sync (when playing).">⬆️</button>
+          <button class="iconCircle" id="beat1Btn" title="Mark Beat 1 now (while MP3 plays)">1</button>
         </div>
 
         <div class="row" style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;border-top:1px solid rgba(0,0,0,.06);">
@@ -666,9 +659,9 @@
           </select>
 
           <select id="projectSelect" style="padding:8px 10px;border-radius:12px;border:1px solid rgba(0,0,0,.12);font-weight:900;height:34px;flex:1;min-width:0;"></select>
-          <button class="iconCircle" id="newProjectBtn" title="New Project" type="button">＋</button>
-          <button class="iconCircle" id="renameProjectBtn" title="Rename Project" type="button">✏️</button>
-          <button class="iconCircle" id="deleteProjectBtn" title="Delete Project" type="button">Ⓧ</button>
+          <button class="iconCircle" id="newProjectBtn" title="New Project">＋</button>
+          <button class="iconCircle" id="renameProjectBtn" title="Rename Project">✏️</button>
+          <button class="iconCircle" id="deleteProjectBtn" title="Delete Project">Ⓧ</button>
         </div>
 
         <div class="row" style="align-items:flex-start;border-top:1px solid rgba(0,0,0,.06);flex-direction:column;gap:8px;">
@@ -699,12 +692,29 @@
     <div class="rhymeBox">
       <div class="rhymeTop">
         <div id="rhymeTitle">Rhymes</div>
-        <button class="btn secondary" id="hideRhymeBtn" type="button">Hide</button>
+        <button class="btn secondary" id="hideRhymeBtn">Hide</button>
       </div>
       <div class="rhymeWords" id="rhymeWords"></div>
     </div>
   </div>
 
-  <script src="./app.js?v=60"></script>
+  <!-- ✅ tiny helper: measure sticky header height into CSS var -->
+  <script>
+    (function(){
+      function syncHeaderH(){
+        var h = document.querySelector("header");
+        if(!h) return;
+        var r = h.getBoundingClientRect();
+        var px = Math.ceil(r.height || 0);
+        document.documentElement.style.setProperty("--headerH", px + "px");
+      }
+      window.addEventListener("load", syncHeaderH);
+      window.addEventListener("resize", syncHeaderH);
+      setTimeout(syncHeaderH, 60);
+      setTimeout(syncHeaderH, 300);
+    })();
+  </script>
+
+  <script src="./app.js?v=61"></script>
 </body>
 </html>
