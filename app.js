@@ -43,6 +43,57 @@ function escapeHtml(s){
 DOM
 ***********************/
 const el = {
+  /***********************
+EMERGENCY BOOT CHECK (shows exact missing IDs)
+***********************/
+(function(){
+  const REQUIRED = [
+    "togglePanelBtn","panelBody","miniBar",
+    "autoSplitBtn","bpmInput","capoInput","keyOutput",
+    "instAcoustic","instElectric","instPiano",
+    "exportBtn",
+    "drumRock","drumHardRock","drumPop","drumRap",
+    "mRock","mHardRock","mPop","mRap",
+    "autoPlayBtn","mScrollBtn",
+    "recordBtn","mRecordBtn",
+    "sortSelect","projectSelect","newProjectBtn","renameProjectBtn","deleteProjectBtn",
+    "recordingsList",
+    "sheetTitle","sheetHint","sheetBody","sheetActions",
+    "rBtn","rhymeDock","hideRhymeBtn","rhymeWords","rhymeTitle",
+    "uploadAudioBtn","beat1Btn","nowPlaying"
+  ];
+
+  function showOverlay(msg){
+    const d = document.createElement("div");
+    d.style.position="fixed";
+    d.style.inset="0";
+    d.style.zIndex="999999";
+    d.style.background="#111";
+    d.style.color="#fff";
+    d.style.padding="16px";
+    d.style.fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    d.style.whiteSpace="pre-wrap";
+    d.textContent = msg;
+    document.body.appendChild(d);
+  }
+
+  // Catch ANY crash and show it on screen
+  window.addEventListener("error", (e)=>{
+    showOverlay("APP CRASHED:\n\n" + (e.message || "Unknown error") + "\n\nFile: " + (e.filename||"") + "\nLine: " + (e.lineno||"") );
+  });
+
+  // After DOM is ready, list missing IDs
+  window.addEventListener("DOMContentLoaded", ()=>{
+    const missing = REQUIRED.filter(id => !document.getElementById(id));
+    if(missing.length){
+      showOverlay(
+        "MISSING HTML IDs (this is why the app is dead):\n\n" +
+        missing.map(x=>"• "+x).join("\n") +
+        "\n\nFix: these IDs must exist in index.html OR remove them from app.js el={...} + wiring."
+      );
+    }
+  });
+})();
 horseWrap: $("horseWrap"),
 horseRight: $("horseRight"),
 horseLeft: $("horseLeft"),
