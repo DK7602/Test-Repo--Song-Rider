@@ -3499,7 +3499,7 @@ function goToSection(sec){
   state.playCardIndex = null;
   state.lastAutoBar = -1;
 
-  renderTabs();     // now no-op but keeps code consistent
+  renderTabs();     // no-op now, but keep it
   renderSheet();
   clearTick();
   applyTick();
@@ -3510,7 +3510,7 @@ function goToSection(sec){
   refreshDisplayedNoteCells();
   updateFullIfVisible();
 
-  // Optional: snap view so the sheet header is visible (feels like “page change”)
+  // snap to top so it feels like a "page" change
   try{
     window.scrollTo({ top: 0, behavior: "auto" });
   }catch{
@@ -3528,6 +3528,91 @@ function prevSection(){
   const i = SECTION_PAGES.indexOf(state.currentSection);
   const prev = SECTION_PAGES[(i - 1 + SECTION_PAGES.length) % SECTION_PAGES.length];
   goToSection(prev);
+}
+
+/***********************
+Swipe detection (horizontal)
+Works anywhere on screen, except when typing/pressing controls
+***********************/
+function installSectionSwipe(){
+  let sx=0, sy=0, t0=0, tracking=false, locked=false;
+  let lastFire = 0;
+
+  const MIN_X = 60;          // min horizontal travel
+  const MAX_MS = 800;        // ignore super slow drags
+  const DOMINANCE = 1.35;    // dx must dominate dy
+
+  function onStart(e){
+    // don't page while rhyme dock is open
+    if(el.rhymeDock && el.rhymeDock.style.display === "block") return;
+
+    const pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    const target = e.target;
+
+    // ✅ don't page-switch when gesture starts in a control (typing/editing safety)
+    if(isEditableEl(target)) return;
+
+    sx = pt.clientX; sy = pt.clientY; t0 = performance.now();
+    tracking = true;
+    locked = false;
+  }
+
+  function onMove(e){
+    if(!tracking) return;
+    const pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
+
+    const dx = pt.clientX - sx;
+    const dy = pt.clientY - sy;
+
+    // lock once horizontal intention is clear
+    if(!locked){
+      if(Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * DOMINANCE){
+        locked = true;
+      }else if(Math.abs(dy) > 18 && Math.abs(dy) > Math.abs(dx)){
+        // vertical scroll intent → abort
+        tracking = false;
+        return;
+      }
+    }
+  }
+
+  function onEnd(e){
+    if(!tracking) return;
+    tracking = false;
+
+    const pt = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : e;
+    const dx = pt.clientX - sx;
+    const dy = pt.clientY - sy;
+    const dt = performance.now() - t0;
+
+    if(dt > MAX_MS) return;
+    if(Math.abs(dx) < MIN_X) return;
+    if(Math.abs(dx) < Math.abs(dy) * DOMINANCE) return;
+
+    // cooldown so one swipe doesn’t fire twice
+    const nowMs = performance.now();
+    if(nowMs - lastFire < 250) return;
+    lastFire = nowMs;
+
+    if(dx < 0) nextSection();  // swipe left → next page
+    else prevSection();        // swipe right → previous page
+  }
+
+  // Touch + pointer
+  document.addEventListener("touchstart", onStart, { passive:true });
+  document.addEventListener("touchmove", onMove, { passive:true });
+  document.addEventListener("touchend", onEnd, { passive:true });
+
+  document.addEventListener("pointerdown", onStart, { passive:true });
+  document.addEventListener("pointermove", onMove, { passive:true });
+  document.addEventListener("pointerup", onEnd, { passive:true });
+
+  // Desktop: arrow keys (when not typing)
+  document.addEventListener("keydown", (e)=>{
+    if(isEditableEl(document.activeElement)) return;
+    if(e.key === "ArrowLeft") prevSection();
+    if(e.key === "ArrowRight") nextSection();
+  });
 }
 
 /***********************
@@ -3605,13 +3690,6 @@ function installSectionSwipe(){
   document.addEventListener("pointermove", onMove, { passive:true });
   document.addEventListener("pointerup", onEnd, { passive:true });
 
-  // Desktop convenience: arrow keys (when not typing)
-  document.addEventListener("keydown", (e)=>{
-    if(isEditableEl(document.activeElement)) return;
-    if(e.key === "ArrowLeft"){ prevSection(); }
-    if(e.key === "ArrowRight"){ nextSection(); }
-  });
-}
 
 /***********************
 Wiring
