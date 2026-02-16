@@ -256,10 +256,15 @@ function normalizeProject(p){
       return L;
     });
 
-    while(p.sections[sec].length < DEFAULT_LINES_PER_SECTION){
+    // ✅ trim trailing blank cards, but keep at least 1
+    while(p.sections[sec].length > 1 && !lineHasContent(p.sections[sec][p.sections[sec].length - 1])){
+      p.sections[sec].pop();
+    }
+
+    // ✅ ensure minimum 1 card
+    if(p.sections[sec].length < MIN_LINES_PER_SECTION){
       p.sections[sec].push(newLine());
     }
-  });
 
   return p;
 }
