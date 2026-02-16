@@ -2371,34 +2371,51 @@ function startDrums(){
 
   state.drumTimer = setInterval(() => {
     if(!state.drumsOn) return;
+
     const s = step % 16;
 
-  if(state.drumStyle === "rap"){
-  // 16-step grid per bar
-  // Snare on 2 & 4 (steps 4 and 12)
-  if(s === 4 || s === 12) drumHit("snare", 1.15);
+    if(state.drumStyle === "rap"){
+      // 16-step grid per bar
+      // Snare on 2 & 4 (steps 4 and 12)
+      if(s === 4 || s === 12) drumHit("snare", 1.15);
 
-  // Nasty bounce kick pattern (more rap-like)
-  if(s === 0) drumHit("kick", 1.10);
-  if(s === 3) drumHit("kick", 0.85);   // pre-snare push
-  if(s === 8) drumHit("kick", 1.05);
-  if(s === 10) drumHit("kick", 0.80);  // late bounce
-  if(s === 14) drumHit("kick", 0.78);  // lead into next bar
+      // Nasty bounce kick pattern (more rap-like)
+      if(s === 0)  drumHit("kick", 1.10);
+      if(s === 3)  drumHit("kick", 0.85);   // pre-snare push
+      if(s === 8)  drumHit("kick", 1.05);
+      if(s === 10) drumHit("kick", 0.80);   // late bounce
+      if(s === 14) drumHit("kick", 0.78);   // lead into next bar
 
-  // Hats: mostly 8ths with velocity movement + occasional doubles
-  const isHatStep = (s % 2 === 0); // 8ths
-  if(isHatStep){
-    // offbeats a little louder
-    const offbeat = (s % 4 === 2);
-    const vel = offbeat ? 0.95 : 0.75;
-    drumHit("hat", vel);
-  }
+      // Hats: mostly 8ths with velocity movement + occasional doubles
+      const isHatStep = (s % 2 === 0); // 8ths
+      if(isHatStep){
+        // offbeats a little louder
+        const offbeat = (s % 4 === 2);
+        const vel = offbeat ? 0.95 : 0.75;
+        drumHit("hat", vel);
+      }
 
-  // occasional 16th hat doubles (gives “nasty” feel)
-  if(s === 7 || s === 15){
-    setTimeout(()=>{ if(state.drumsOn && state.drumStyle==="rap") drumHit("hat", 0.65); }, 35);
-    setTimeout(()=>{ if(state.drumsOn && state.drumStyle==="rap") drumHit("hat", 0.55); }, 70);
-  }
+      // occasional 16th hat doubles (gives “nasty” feel)
+      if(s === 7 || s === 15){
+        setTimeout(() => {
+          if(state.drumsOn && state.drumStyle === "rap") drumHit("hat", 0.65);
+        }, 35);
+        setTimeout(() => {
+          if(state.drumsOn && state.drumStyle === "rap") drumHit("hat", 0.55);
+        }, 70);
+      }
+    }
+
+    // (optional) add rock/pop/hardrock patterns here later...
+
+    step++;
+  }, stepMs);
+}
+
+function stopInstrument(){
+  state.instrumentOn = false;
+  state.audioToken++; // cancels pending strum timeouts
+  updateClock();
 }
 
 
