@@ -2401,7 +2401,9 @@ Tabs + editor
 function ensureSectionArray(sec){
   if(sec === "Full") return [];
   if(!state.project.sections[sec]) state.project.sections[sec] = [];
-  while(state.project.sections[sec].length < DEFAULT_LINES_PER_SECTION){
+
+  // ✅ keep at least 1 card
+  while(state.project.sections[sec].length < MIN_LINES_PER_SECTION){
     state.project.sections[sec].push(newLine());
   }
   return state.project.sections[sec];
