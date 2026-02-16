@@ -1870,7 +1870,6 @@ function nextNonBlankCardIndexAfter(currentIdx){
 }
 
 // Check project DATA (not DOM) so we can decide next section without rendering
-function lineHasContent(line){
   if(!line || typeof line !== "object") return false;
   const lyr = String(line.lyrics || "").trim();
   if(lyr) return true;
