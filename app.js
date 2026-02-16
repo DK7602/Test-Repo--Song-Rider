@@ -40,76 +40,18 @@ function escapeHtml(s){
 }
 
 /***********************
-EMERGENCY BOOT CHECK (shows exact missing IDs)
-✅ MUST be OUTSIDE the el = { } object
-***********************/
-(function(){
-  const REQUIRED = [
-    "togglePanelBtn","panelBody","miniBar",
-    "autoSplitBtn","bpmInput","capoInput","keyOutput",
-    "instAcoustic","instElectric","instPiano",
-    "exportBtn",
-    "drumRock","drumHardRock","drumPop","drumRap",
-    "mRock","mHardRock","mPop","mRap",
-    "autoPlayBtn","mScrollBtn",
-    "recordBtn","mRecordBtn",
-    "sortSelect","projectSelect","newProjectBtn","renameProjectBtn","deleteProjectBtn",
-    "recordingsList",
-    "sheetTitle","sheetHint","sheetBody","sheetActions",
-    "rBtn","rhymeDock","hideRhymeBtn","rhymeWords","rhymeTitle",
-    "uploadAudioBtn","beat1Btn","nowPlaying",
-    "horseWrap","horseRight","horseLeft"
-  ];
-
-  function showOverlay(msg){
-    const d = document.createElement("div");
-    d.style.position="fixed";
-    d.style.inset="0";
-    d.style.zIndex="999999";
-    d.style.background="#111";
-    d.style.color="#fff";
-    d.style.padding="16px";
-    d.style.fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-    d.style.whiteSpace="pre-wrap";
-    d.textContent = msg;
-    document.body.appendChild(d);
-  }
-
-  // Catch ANY runtime crash and show it on screen
-  window.addEventListener("error", (e)=>{
-    showOverlay(
-      "APP CRASHED:\n\n" +
-      (e.message || "Unknown error") +
-      "\n\nFile: " + (e.filename||"") +
-      "\nLine: " + (e.lineno||"")
-    );
-  });
-
-  // After DOM is ready, list missing IDs
-  window.addEventListener("DOMContentLoaded", ()=>{
-    const missing = REQUIRED.filter(id => !document.getElementById(id));
-    if(missing.length){
-      showOverlay(
-        "MISSING HTML IDs (this is why the app is dead):\n\n" +
-        missing.map(x=>"• "+x).join("\n") +
-        "\n\nFix: these IDs must exist in index.html OR remove them from app.js wiring."
-      );
-    }
-  });
-})();
-
-/***********************
 DOM
 ***********************/
 const el = {
-  horseWrap: $("horseWrap"),
-  horseRight: $("horseRight"),
-  horseLeft: $("horseLeft"),
+horseWrap: $("horseWrap"),
+horseRight: $("horseRight"),
+horseLeft: $("horseLeft"),
 
-  uploadAudioBtn: $("uploadAudioBtn"),
+   uploadAudioBtn: $("uploadAudioBtn"),
   beat1Btn: $("beat1Btn"),
   nowPlaying: $("nowPlaying"),
 
+  
   togglePanelBtn: $("togglePanelBtn"),
   panelBody: $("panelBody"),
   miniBar: $("miniBar"),
@@ -165,9 +107,6 @@ const el = {
   rhymeWords: $("rhymeWords"),
   rhymeTitle: $("rhymeTitle")
 };
-
-
-
 
 /***********************
 Active card + active lyrics
@@ -647,199 +586,57 @@ function scheduleCleanup(nodes, ms){
 }
 
 /***********************
-BETTER RAP DRUMS (replacement)
-Kick = sub + punch + click
-Snare = noise snap + tone body + tiny room
-Hat = tight noise with bandpass + HP
+Basic drum building blocks
 ***********************/
-function makeNoiseBuffer(ctx, ms){
-  const n = Math.max(256, Math.floor(ctx.sampleRate * (ms/1000)));
-  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  for(let i=0;i<n;i++){
-    // slight decay so it feels like a real transient
-    const fade = 1 - (i / n);
-    d[i] = (Math.random()*2 - 1) * fade;
-  }
-  return buf;
-}
-
-function quickEnv(g, t0, a, d, peak){
-  g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + a);
-  g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
-}
-
-function rapKick(vel=1.0){
+function pluck(freq=440, ms=180, gain=0.08, type="sine"){
   const ctx = ensureCtx();
   const t0 = ctx.currentTime;
-  const v = clamp(vel, 0.2, 1.2);
 
-  // sub
-  const sub = ctx.createOscillator();
-  sub.type = "sine";
-  sub.frequency.setValueAtTime(58, t0);
-  sub.frequency.exponentialRampToValueAtTime(38, t0 + 0.11);
-
-  const subG = ctx.createGain();
-  // tighter + louder than your old kick, still safe
-  subG.gain.setValueAtTime(0.0001, t0);
-  subG.gain.exponentialRampToValueAtTime(0.22 * v, t0 + 0.006);
-  subG.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
-
-  // punch (higher sine)
-  const punch = ctx.createOscillator();
-  punch.type = "sine";
-  punch.frequency.setValueAtTime(115, t0);
-  punch.frequency.exponentialRampToValueAtTime(72, t0 + 0.07);
-
-  const punchG = ctx.createGain();
-  punchG.gain.setValueAtTime(0.0001, t0);
-  punchG.gain.exponentialRampToValueAtTime(0.10 * v, t0 + 0.004);
-  punchG.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.11);
-
-  // click (tiny noise)
-  const click = ctx.createBufferSource();
-  click.buffer = makeNoiseBuffer(ctx, 10);
-
-  const hp = ctx.createBiquadFilter();
-  hp.type = "highpass";
-  hp.frequency.value = 1400;
-  hp.Q.value = 0.7;
-
-  const clickG = ctx.createGain();
-  quickEnv(clickG, t0, 0.001, 0.02, 0.06 * v);
-
-  // mild saturation
-  const sh = makeWaveshaper(ctx, 1.4);
-
-  // route
-  sub.connect(subG);
-  punch.connect(punchG);
-
-  subG.connect(sh);
-  punchG.connect(sh);
-
-  click.connect(hp);
-  hp.connect(clickG);
-  clickG.connect(sh);
-
-  sh.connect(getOutNode());
-
-  sub.start(t0);   sub.stop(t0 + 0.25);
-  punch.start(t0); punch.stop(t0 + 0.16);
-  click.start(t0); click.stop(t0 + 0.04);
-
-  scheduleCleanup([sub,subG,punch,punchG,click,hp,clickG,sh], 600);
-}
-
-function rapSnare(vel=1.0){
-  const ctx = ensureCtx();
-  const t0 = ctx.currentTime;
-  const v = clamp(vel, 0.2, 1.2);
-
-  // noise snap
-  const ns = ctx.createBufferSource();
-  ns.buffer = makeNoiseBuffer(ctx, 70);
-
-  const bp = ctx.createBiquadFilter();
-  bp.type = "bandpass";
-  bp.frequency.value = 2500;
-  bp.Q.value = 0.9;
-
-  const snapG = ctx.createGain();
-  quickEnv(snapG, t0, 0.001, 0.11, 0.18 * v);
-
-  // body tone
-  const tone = ctx.createOscillator();
-  tone.type = "triangle";
-  tone.frequency.setValueAtTime(190, t0);
-
-  const toneG = ctx.createGain();
-  quickEnv(toneG, t0, 0.001, 0.12, 0.06 * v);
-
-  // tiny room (quick slap) — safe & small
-  const dly = ctx.createDelay(0.2);
-  dly.delayTime.value = 0.06;
-
-  const fb = ctx.createGain();
-  fb.gain.value = 0.12;
-
-  const roomLP = ctx.createBiquadFilter();
-  roomLP.type = "lowpass";
-  roomLP.frequency.value = 3200;
-  roomLP.Q.value = 0.3;
-
-  const wet = ctx.createGain();
-  wet.gain.value = 0.12;
-
-  // route dry bus
-  const dry = ctx.createGain();
-  dry.gain.value = 1.0;
-
-  ns.connect(bp);
-  bp.connect(snapG);
-  snapG.connect(dry);
-
-  tone.connect(toneG);
-  toneG.connect(dry);
-
-  // room send
-  dry.connect(dly);
-  dly.connect(roomLP);
-  roomLP.connect(fb);
-  fb.connect(dly);
-  roomLP.connect(wet);
-
-  // mild saturation to make it “mean”
-  const sh = makeWaveshaper(ctx, 1.6);
-
-  dry.connect(sh);
-  wet.connect(sh);
-  sh.connect(getOutNode());
-
-  ns.start(t0);   ns.stop(t0 + 0.10);
-  tone.start(t0); tone.stop(t0 + 0.14);
-
-  scheduleCleanup([ns,bp,snapG,tone,toneG,dly,fb,roomLP,wet,dry,sh], 900);
-}
-
-function rapHat(vel=1.0){
-  const ctx = ensureCtx();
-  const t0 = ctx.currentTime;
-  const v = clamp(vel, 0.15, 1.2);
-
-  const ns = ctx.createBufferSource();
-  ns.buffer = makeNoiseBuffer(ctx, 25);
-
-  const hp = ctx.createBiquadFilter();
-  hp.type = "highpass";
-  hp.frequency.value = 5200;
-  hp.Q.value = 0.6;
-
-  const bp = ctx.createBiquadFilter();
-  bp.type = "bandpass";
-  bp.frequency.value = 9000;
-  bp.Q.value = 0.8;
-
+  const o = ctx.createOscillator();
   const g = ctx.createGain();
-  quickEnv(g, t0, 0.001, 0.035, 0.055 * v);
 
-  ns.connect(hp);
-  hp.connect(bp);
-  bp.connect(g);
+  o.type = type;
+  o.frequency.value = freq;
+
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
+
+  o.connect(g);
   g.connect(getOutNode());
 
-  ns.start(t0);
-  ns.stop(t0 + 0.05);
+  o.start(t0);
+  o.stop(t0 + ms/1000 + 0.02);
 
-  scheduleCleanup([ns,hp,bp,g], 400);
+  scheduleCleanup([o,g], ms + 80);
 }
 
-function drumHit(kind, vel=1.0){
-  if(kind === "kick") return rapKick(vel);
-  if(kind === "snare") return rapSnare(vel);
-  if(kind === "hat") return rapHat(vel);
+function noise(ms=40, gain=0.08){
+  const ctx = ensureCtx();
+  const bufferSize = Math.max(256, Math.floor(ctx.sampleRate * (ms/1000)));
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i] = (Math.random()*2-1);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+
+  const g = ctx.createGain();
+  const t0 = ctx.currentTime;
+  g.gain.setValueAtTime(gain, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
+
+  src.connect(g);
+  g.connect(getOutNode());
+  src.start();
+
+  scheduleCleanup([src,g], ms + 120);
+}
+
+function drumHit(kind){
+  if(kind === "kick") pluck(70, 120, 0.16, "sine");
+  if(kind === "snare"){ noise(60, 0.10); pluck(180, 70, 0.05, "square"); }
+  if(kind === "hat"){ noise(25, 0.05); }
 }
 
 /***********************
@@ -1748,7 +1545,6 @@ function getHeaderBottomY(){
 }
 
 function getCards(){
-  if(!el.sheetBody) return [];
   return Array.from(el.sheetBody.querySelectorAll(".card"));
 }
 
@@ -2433,41 +2229,30 @@ function startDrums(){
 
   state.drumTimer = setInterval(() => {
     if(!state.drumsOn) return;
-
     const s = step % 16;
 
     if(state.drumStyle === "rap"){
-      // 16-step grid per bar
-      // Snare on 2 & 4 (steps 4 and 12)
-      if(s === 4 || s === 12) drumHit("snare", 1.15);
-
-      // Nasty bounce kick pattern (more rap-like)
-      if(s === 0)  drumHit("kick", 1.10);
-      if(s === 3)  drumHit("kick", 0.85);   // pre-snare push
-      if(s === 8)  drumHit("kick", 1.05);
-      if(s === 10) drumHit("kick", 0.80);   // late bounce
-      if(s === 14) drumHit("kick", 0.78);   // lead into next bar
-
-      // Hats: mostly 8ths with velocity movement + occasional doubles
-      const isHatStep = (s % 2 === 0); // 8ths
-      if(isHatStep){
-        const offbeat = (s % 4 === 2);
-        const vel = offbeat ? 0.95 : 0.75;
-        drumHit("hat", vel);
-      }
-
-      // occasional 16th hat doubles
-      if(s === 7 || s === 15){
-        setTimeout(()=>{ if(state.drumsOn && state.drumStyle==="rap") drumHit("hat", 0.65); }, 35);
-        setTimeout(()=>{ if(state.drumsOn && state.drumStyle==="rap") drumHit("hat", 0.55); }, 70);
-      }
+      if(s === 0 || s === 8) drumHit("kick");
+      if(s === 4 || s === 12) drumHit("snare");
+      drumHit("hat");
+    } else if(state.drumStyle === "rock"){
+      if(s === 0 || s === 8) drumHit("kick");
+      if(s === 4 || s === 12) drumHit("snare");
+      if(s % 2 === 0) drumHit("hat");
+    } else if(state.drumStyle === "hardrock"){
+      if(s === 4 || s === 12) drumHit("snare");
+      if(s === 0 || s === 3 || s === 6 || s === 8 || s === 11 || s === 14) drumHit("kick");
+      drumHit("hat");
+    } else {
+      if(s === 0 || s === 7 || s === 8) drumHit("kick");
+      if(s === 4 || s === 12) drumHit("snare");
+      if(s % 2 === 0) drumHit("hat");
     }
 
     step++;
   }, stepMs);
 }
 
-// --- instrument toggles (unchanged, just placed AFTER properly closed startDrums) ---
 function stopInstrument(){
   state.instrumentOn = false;
   state.audioToken++; // cancels pending strum timeouts
@@ -2480,6 +2265,7 @@ function startInstrument(){
   state.audioToken++; // new generation
   updateClock();
 }
+
 
 /***********************
 UI helpers
@@ -2974,9 +2760,6 @@ function renderSheetActions(){
 }
 
 function renderSheet(){
-  if(!el.sheetBody || !el.sheetTitle || !el.sheetHint || !el.sheetActions){
-    return;
-  }
   el.sheetTitle.textContent = state.currentSection;
   renderSheetActions();
 
@@ -3889,86 +3672,51 @@ function prevSection(){
 Swipe detection (horizontal)
 ***********************/
 function installSectionSwipe(){
-  // Use document-level pointer events (more reliable on Android than touchstart on a textarea)
-  const MIN_X = 90;        // swipe must be this far
-  const MAX_MS = 900;      // swipe must be quick-ish
-  const DOMINANCE = 1.25;  // must be more horizontal than vertical
-  const COOLDOWN = 250;
+  let sx=0, sy=0, t0=0, tracking=false, locked=false;
+  let lastFire = 0;
 
-  let sx=0, sy=0, t0=0, tracking=false;
-  let lastFire=0;
+  const MIN_X = 60;
+  const MAX_MS = 800;
+  const DOMINANCE = 1.35;
 
-  // Visible proof it's installed (optional, remove later)
-  (function showReady(){
-    const badge = document.createElement("div");
-    badge.textContent = "SWIPE READY";
-    badge.style.position="fixed";
-    badge.style.left="12px";
-    badge.style.bottom="12px";
-    badge.style.zIndex="999999";
-    badge.style.padding="10px 12px";
-    badge.style.borderRadius="12px";
-    badge.style.background="rgba(0,0,0,.85)";
-    badge.style.color="#fff";
-    badge.style.fontWeight="900";
-    badge.style.fontFamily="system-ui, -apple-system, Segoe UI, Roboto, Arial";
-    badge.style.pointerEvents="none";
-    document.body.appendChild(badge);
-    setTimeout(()=>{ try{ badge.remove(); }catch{} }, 1800);
-  })();
+  function onStart(e){
+    if(el.rhymeDock && el.rhymeDock.style.display === "block") return;
 
-  function toast(msg){
-    const t = document.createElement("div");
-    t.textContent = msg;
-    t.style.position="fixed";
-    t.style.left="50%";
-    t.style.top="12px";
-    t.style.transform="translateX(-50%)";
-    t.style.zIndex="999999";
-    t.style.padding="10px 12px";
-    t.style.borderRadius="12px";
-    t.style.background="rgba(0,0,0,.85)";
-    t.style.color="#fff";
-    t.style.fontWeight="900";
-    t.style.fontFamily="system-ui, -apple-system, Segoe UI, Roboto, Arial";
-    t.style.pointerEvents="none";
-    document.body.appendChild(t);
-    setTimeout(()=>{ try{ t.remove(); }catch{} }, 650);
-  }
+    const pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    const target = e.target;
 
-  function shouldIgnoreTarget(target){
-    if(!target) return false;
+    // don’t page-switch when starting on controls or inside the panel
+    if(isEditableEl(target) || (target && target.closest && target.closest("#panelBody"))) return;
 
-    // don't swipe when rhyme dock open
-    if(el.rhymeDock && el.rhymeDock.style.display === "block") return true;
-
-    // block swipes that START on the top control panel
-    if(target.closest && target.closest("#panelBody")) return true;
-
-    // also block swipes that start on buttons/selects (prevents accidental page flips)
-    const tag = (target.tagName || "").toUpperCase();
-    if(tag === "BUTTON" || tag === "SELECT") return true;
-
-    return false;
-  }
-
-  function onDown(e){
-    // Only care about primary pointer (finger)
-    if(e.pointerType && e.pointerType !== "touch") return;
-    if(shouldIgnoreTarget(e.target)) return;
-
+    sx = pt.clientX; sy = pt.clientY; t0 = performance.now();
     tracking = true;
-    sx = e.clientX;
-    sy = e.clientY;
-    t0 = performance.now();
+    locked = false;
   }
 
-  function onUp(e){
+  function onMove(e){
+    if(!tracking) return;
+    const pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
+
+    const dx = pt.clientX - sx;
+    const dy = pt.clientY - sy;
+
+    if(!locked){
+      if(Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * DOMINANCE){
+        locked = true;
+      }else if(Math.abs(dy) > 18 && Math.abs(dy) > Math.abs(dx)){
+        tracking = false;
+        return;
+      }
+    }
+  }
+
+  function onEnd(e){
     if(!tracking) return;
     tracking = false;
 
-    const dx = e.clientX - sx;
-    const dy = e.clientY - sy;
+    const pt = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : e;
+    const dx = pt.clientX - sx;
+    const dy = pt.clientY - sy;
     const dt = performance.now() - t0;
 
     if(dt > MAX_MS) return;
@@ -3976,87 +3724,43 @@ function installSectionSwipe(){
     if(Math.abs(dx) < Math.abs(dy) * DOMINANCE) return;
 
     const nowMs = performance.now();
-    if(nowMs - lastFire < COOLDOWN) return;
+    if(nowMs - lastFire < 250) return;
     lastFire = nowMs;
 
-    if(dx < 0){
-      toast("➡ Next");
-      nextSection();
-    }else{
-      toast("⬅ Prev");
-      prevSection();
-    }
+    if(dx < 0) nextSection();
+    else prevSection();
   }
 
-  // Capture phase so it still works even when starting on textarea/input
-  document.addEventListener("pointerdown", onDown, { capture:true, passive:true });
-  document.addEventListener("pointerup", onUp, { capture:true, passive:true });
-  document.addEventListener("pointercancel", ()=>{ tracking=false; }, { capture:true, passive:true });
+  document.addEventListener("touchstart", onStart, { passive:true });
+  document.addEventListener("touchmove", onMove, { passive:true });
+  document.addEventListener("touchend", onEnd, { passive:true });
 
-  // desktop arrows still work
+  document.addEventListener("pointerdown", onStart, { passive:true });
+  document.addEventListener("pointermove", onMove, { passive:true });
+  document.addEventListener("pointerup", onEnd, { passive:true });
+
+  // Desktop arrow keys (when not typing)
   document.addEventListener("keydown", (e)=>{
     if(isEditableEl(document.activeElement)) return;
     if(e.key === "ArrowLeft") prevSection();
     if(e.key === "ArrowRight") nextSection();
   });
-
-  window.__SWIPE_INSTALLED__ = true;
 }
+
 /***********************
 Wiring
 ***********************/
 function wire(){
-  const on = (node, ev, fn) => {
-    if(node) node.addEventListener(ev, fn);
-  };
-
-  // Panel toggle
-  on(el.togglePanelBtn, "click", () => {
-    if(!el.panelBody) return;
+  el.togglePanelBtn.addEventListener("click", () => {
     const hidden = !el.panelBody.classList.contains("hidden");
     setPanelHidden(hidden);
   });
 
-  // AutoSplit
-  on(el.autoSplitBtn, "click", () => {
+  el.autoSplitBtn.addEventListener("click", () => {
     state.autoSplit = !state.autoSplit;
-    if(el.autoSplitBtn){
-      el.autoSplitBtn.classList.toggle("active", state.autoSplit);
-      el.autoSplitBtn.textContent =
-        "AutoSplit: " + (state.autoSplit ? "ON" : "OFF");
-    }
+    el.autoSplitBtn.classList.toggle("active", state.autoSplit);
+    el.autoSplitBtn.textContent = "AutoSplit: " + (state.autoSplit ? "ON" : "OFF");
   });
-
-  // Export
-  on(el.exportBtn, "click", exportFullPreview);
-
-  // BPM
-  on(el.bpmInput, "change", () => {
-    if(!el.bpmInput) return;
-    let n = parseInt(el.bpmInput.value, 10);
-    if(!Number.isFinite(n)) n = 95;
-    state.bpm = clamp(n, 40, 220);
-  });
-
-  // Rap drums
-  on(el.drumRap, "click", () => {
-    if(state.drumStyle === "rap" && state.drumsOn){
-      stopDrums();
-    }else{
-      state.drumStyle = "rap";
-      startDrums();
-    }
-    renderDrumUI();
-  });
-
-  // AutoScroll
-  on(el.autoPlayBtn, "click", () => {
-    setAutoScroll(!state.autoScrollOn);
-  });
-
-  // Record
-  on(el.recordBtn, "click", toggleRecording);
-}
 
   if(el.exportBtn){
     el.exportBtn.addEventListener("click", exportFullPreview);
