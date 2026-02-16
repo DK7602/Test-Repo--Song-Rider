@@ -1892,7 +1892,7 @@ function lineHasContentData(line){
 function firstContentLineIndexInSection(sec){
   const arr = (state.project && state.project.sections && state.project.sections[sec]) ? state.project.sections[sec] : [];
   for(let i=0;i<arr.length;i++){
-    if(lineHasContent(arr[i])) return i;
+    if(lineHasContentData(arr[i])) return i;
   }
   return null;
 }
