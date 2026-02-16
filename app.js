@@ -40,11 +40,8 @@ function escapeHtml(s){
 }
 
 /***********************
-DOM
-***********************/
-const el = {
-  /***********************
 EMERGENCY BOOT CHECK (shows exact missing IDs)
+✅ MUST be OUTSIDE the el = { } object
 ***********************/
 (function(){
   const REQUIRED = [
@@ -60,7 +57,8 @@ EMERGENCY BOOT CHECK (shows exact missing IDs)
     "recordingsList",
     "sheetTitle","sheetHint","sheetBody","sheetActions",
     "rBtn","rhymeDock","hideRhymeBtn","rhymeWords","rhymeTitle",
-    "uploadAudioBtn","beat1Btn","nowPlaying"
+    "uploadAudioBtn","beat1Btn","nowPlaying",
+    "horseWrap","horseRight","horseLeft"
   ];
 
   function showOverlay(msg){
@@ -77,9 +75,14 @@ EMERGENCY BOOT CHECK (shows exact missing IDs)
     document.body.appendChild(d);
   }
 
-  // Catch ANY crash and show it on screen
+  // Catch ANY runtime crash and show it on screen
   window.addEventListener("error", (e)=>{
-    showOverlay("APP CRASHED:\n\n" + (e.message || "Unknown error") + "\n\nFile: " + (e.filename||"") + "\nLine: " + (e.lineno||"") );
+    showOverlay(
+      "APP CRASHED:\n\n" +
+      (e.message || "Unknown error") +
+      "\n\nFile: " + (e.filename||"") +
+      "\nLine: " + (e.lineno||"")
+    );
   });
 
   // After DOM is ready, list missing IDs
@@ -89,20 +92,24 @@ EMERGENCY BOOT CHECK (shows exact missing IDs)
       showOverlay(
         "MISSING HTML IDs (this is why the app is dead):\n\n" +
         missing.map(x=>"• "+x).join("\n") +
-        "\n\nFix: these IDs must exist in index.html OR remove them from app.js el={...} + wiring."
+        "\n\nFix: these IDs must exist in index.html OR remove them from app.js wiring."
       );
     }
   });
 })();
-horseWrap: $("horseWrap"),
-horseRight: $("horseRight"),
-horseLeft: $("horseLeft"),
 
-   uploadAudioBtn: $("uploadAudioBtn"),
+/***********************
+DOM
+***********************/
+const el = {
+  horseWrap: $("horseWrap"),
+  horseRight: $("horseRight"),
+  horseLeft: $("horseLeft"),
+
+  uploadAudioBtn: $("uploadAudioBtn"),
   beat1Btn: $("beat1Btn"),
   nowPlaying: $("nowPlaying"),
 
-  
   togglePanelBtn: $("togglePanelBtn"),
   panelBody: $("panelBody"),
   miniBar: $("miniBar"),
@@ -158,6 +165,9 @@ horseLeft: $("horseLeft"),
   rhymeWords: $("rhymeWords"),
   rhymeTitle: $("rhymeTitle")
 };
+
+
+
 
 /***********************
 Active card + active lyrics
