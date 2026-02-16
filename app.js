@@ -2684,8 +2684,12 @@ function renderSheet(){
 
     wrap.appendChild(label1);
     wrap.appendChild(ta);
-    wrap.appendChild(label2);
-    wrap.appendChild(preview);
+   const previewBlock = document.createElement("div");
+previewBlock.className = "fullPreviewBlock";
+previewBlock.appendChild(label2);
+previewBlock.appendChild(preview);
+
+wrap.appendChild(previewBlock);
 
     el.sheetBody.appendChild(wrap);
     return;
