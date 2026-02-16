@@ -151,7 +151,7 @@ document.addEventListener("selectionchange", () => {
 Sections (ORDER LOCKED)
 ***********************/
 const SECTIONS = ["Full","VERSE 1","CHORUS 1","VERSE 2","CHORUS 2","VERSE 3","BRIDGE","CHORUS 3"];
-const DEFAULT_LINES_PER_SECTION = 20;
+const MIN_LINES_PER_SECTION = 1;
 
 /***********************
 Project storage (MAIN)
