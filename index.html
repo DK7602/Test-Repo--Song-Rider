@@ -1,4 +1,4 @@
-<!-- index.html (FULL REPLACE MAIN v46 - Horse runner + title moved + headshot removed) -->
+<!-- index.html (FULL REPLACE MAIN v47 - Title font + pink/blue/green title) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,7 +6,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="theme-color" content="#e9e9ea"/>
   <title>Song Rider Pro</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=59"/>
+  <link rel="manifest" href="./manifest.webmanifest?v=60"/>
+
+  <!-- ✅ COOL TITLE FONT -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 
   <style>
     :root{
@@ -27,6 +32,9 @@
 
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+
+      /* ✅ NEW: title font */
+      --titleFont: "Bebas Neue", var(--sans);
     }
 
     *{ box-sizing:border-box; }
@@ -45,14 +53,14 @@
       left:0; right:0;
       top:6px;
       height:74px;
-      z-index:120;          /* above header + content */
+      z-index:120;
       pointer-events:none;
       overflow:visible;
     }
     .horseWrap img{
       position:absolute;
       top:0;
-      height:74px;          /* tweak if you want bigger/smaller */
+      height:74px;
       width:auto;
       display:none;
       will-change:transform;
@@ -82,7 +90,7 @@
     }
 
     .panel{
-      margin-top:0; /* ✅ header is simpler now */
+      margin-top:0;
       background:var(--card);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
@@ -95,14 +103,21 @@
       display:flex; align-items:center; justify-content:space-between; gap:10px;
     }
 
-    /* ✅ Title moved here */
+    /* ✅ NEW TITLE STYLE */
     .panelTop .left{
-      font-weight:1200;
-      font-size:18px;
-      letter-spacing:.2px;
-      color:#111;
-      line-height:1;
+      font-family: var(--titleFont);
+      font-weight: 400;
+      font-size: 22px;
+      letter-spacing: .8px;
+      line-height: 1;
+      display:flex;
+      align-items:baseline;
+      gap:6px;
+      text-transform: uppercase;
     }
+    .srp-pink{ color: var(--lyricPink); text-shadow: 0 1px 0 rgba(0,0,0,.08); }
+    .srp-blue{ color: var(--noteBlue); text-shadow: 0 1px 0 rgba(0,0,0,.08); }
+    .srp-green{ color: var(--backbeatGreen); text-shadow: 0 1px 0 rgba(0,0,0,.08); }
 
     .miniBar{ display:none; padding:10px 12px; border-bottom:1px solid rgba(0,0,0,.06); }
     .miniBar.show{ display:block; }
@@ -524,16 +539,20 @@
 </head>
 
 <body>
-  <!-- ✅ Horse GIFs (these filenames must exist in your repo) -->
+  <!-- ✅ Horse GIFs -->
   <div class="horseWrap" id="horseWrap" aria-hidden="true">
-    <img id="horseRight" src="./Horserunsright.gif?v=59" alt="Horse runs right"/>
-    <img id="horseLeft"  src="./Horserunsleft.gif?v=59"  alt="Horse runs left"/>
+    <img id="horseRight" src="./Horserunsright.gif?v=60" alt="Horse runs right"/>
+    <img id="horseLeft"  src="./Horserunsleft.gif?v=60"  alt="Horse runs left"/>
   </div>
 
   <header>
     <div class="panel">
       <div class="panelTop">
-        <div class="left">Song Rider Pro</div>
+        <div class="left" aria-label="Song Rider Pro">
+          <span class="srp-pink">Song</span>
+          <span class="srp-blue">Rider</span>
+          <span class="srp-green">Pro</span>
+        </div>
         <button class="btn secondary" id="togglePanelBtn">Hide</button>
       </div>
 
@@ -626,6 +645,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=59"></script>
+  <script src="./app.js?v=60"></script>
 </body>
 </html>
