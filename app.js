@@ -2964,6 +2964,9 @@ function renderSheetActions(){
 }
 
 function renderSheet(){
+  if(!el.sheetBody || !el.sheetTitle || !el.sheetHint || !el.sheetActions){
+    return;
+  }
   el.sheetTitle.textContent = state.currentSection;
   renderSheetActions();
 
