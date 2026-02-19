@@ -3459,6 +3459,7 @@ ta.value = state.project.fullText || "";
     if(tmr) clearTimeout(tmr);
     tmr = setTimeout(() => {
       applyFullTextToProjectSections(state.project.fullText || "");
+      historyCommitIfChanged();
       upsertProject(state.project);
       updateKeyFromAllNotes();
       // don’t renderSheet() here (would move cursor)
@@ -3503,7 +3504,8 @@ addBtn.addEventListener("click", (e) => {
   const insertAt = idx + 1;
   const nl = newLine();
   arr.splice(insertAt, 0, nl);
-
+  
+historyCommitIfChanged();
   upsertProject(state.project);
   renderSheet();
   updateFullIfVisible();
@@ -3542,6 +3544,7 @@ delBtn.addEventListener("click", (e) => {
     arr.splice(idx, 1);
   }
 
+  historyCommitIfChanged();
   upsertProject(state.project);
   renderSheet();
   updateFullIfVisible();
