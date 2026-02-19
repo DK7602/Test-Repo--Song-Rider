@@ -167,29 +167,26 @@ function injectBspCardLook(){
       text-align: center !important;
     }
 
-    /* LYRICS: match BSP feel (big + bold) */
-    textarea.lyrics{
-      font-size: 30px !important;   /* <-- main change */
-      font-weight: 900 !important;  /* <-- main change */
-      line-height: 1.18 !important;
-      padding: 16px !important;
-      border-radius: 18px !important;
-      min-height: 120px !important;
-    }
+/* LYRICS: tuned closer to BSP (not oversized) */
+textarea.lyrics{
+  font-size: 26px !important;   /* was 30 */
+  font-weight: 800 !important;  /* was 900 */
+  line-height: 1.2 !important;
+  padding: 14px !important;
+  border-radius: 16px !important;
+  min-height: 110px !important;
+}
 
-    /* Beat boxes: bigger + bold like BSP */
-    .beatsRow{
-      gap: 12px !important;
-      margin-top: 12px !important;
-    }
-    textarea.beatCell{
-      min-height: 72px !important;
-      padding: 14px 12px !important;
-      border-radius: 18px !important;
-      font-size: 22px !important;
-      font-weight: 900 !important;
-      line-height: 1.12 !important;
-    }
+/* Beat boxes: scaled down */
+textarea.beatCell{
+  min-height: 64px !important;  /* was 72 */
+  padding: 12px 10px !important;
+  border-radius: 16px !important;
+  font-size: 20px !important;   /* was 22 */
+  font-weight: 800 !important;  /* was 900 */
+  line-height: 1.15 !important;
+}
+
 
     /* Keep your tick highlight behavior, just make it feel “BSP bold” */
     .tick{
