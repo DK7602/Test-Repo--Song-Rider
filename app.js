@@ -57,10 +57,6 @@ horseLeft: $("horseLeft"),
   miniBar: $("miniBar"),
 
   autoSplitBtn: $("autoSplitBtn"),
-    undoBtn: $("undoBtn"),
-  redoBtn: $("redoBtn"),
-  quickSaveBtn: $("quickSaveBtn"),
-
   bpmInput: $("bpmInput"),
   capoInput: $("capoInput"),
   keyOutput: $("keyOutput"),
@@ -628,113 +624,6 @@ lastAutoBar: -1,
   recMixWired: false,
   recKeepAlive: null,
 };
-/***********************
-UNDO / REDO (Project snapshot history)
-- Keeps AutoSplit always ON
-- Undo/Redo applies across the whole project (sections + fullText + bpm/capo/etc)
-***********************/
-const history = {
-  undo: [],
-  redo: [],
-  lastJson: "",
-  restoring: false,
-  max: 60
-};
-
-function cloneProjectForHistory(p){
-  // store only what we need (project is already plain data)
-  try{ return JSON.stringify(p); }catch{ return ""; }
-}
-
-function historyInitFromProject(){
-  history.undo = [];
-  history.redo = [];
-  history.restoring = false;
-  history.lastJson = cloneProjectForHistory(state.project) || "";
-}
-
-// Call AFTER you mutate state.project (but BEFORE/AROUND upsert is fine)
-function historyCommitIfChanged(){
-  if(history.restoring) return;
-  const cur = cloneProjectForHistory(state.project);
-  if(!cur) return;
-
-  if(!history.lastJson){
-    history.lastJson = cur;
-    return;
-  }
-
-  if(cur === history.lastJson) return;
-
-  history.undo.push(history.lastJson);
-  if(history.undo.length > history.max) history.undo.shift();
-
-  history.lastJson = cur;
-  history.redo = [];
-  updateUndoRedoUI();
-}
-
-function applyProjectJson(json){
-  try{
-    const obj = JSON.parse(json);
-    const norm = normalizeProject(obj);
-    if(!norm) return false;
-
-    history.restoring = true;
-
-    // keep current section stable
-    const keepSection = state.currentSection;
-
-    state.project = norm;
-
-    // force-save this restored state as the current project
-    upsertProject(state.project);
-
-    applyProjectSettingsToUI();
-
-    // restore section + rerender
-    state.currentSection = keepSection || "Full";
-    renderAll();
-
-    history.lastJson = cloneProjectForHistory(state.project) || history.lastJson;
-
-    history.restoring = false;
-    updateUndoRedoUI();
-    return true;
-  }catch{
-    history.restoring = false;
-    return false;
-  }
-}
-
-function doUndo(){
-  if(history.undo.length === 0) return;
-
-  const cur = cloneProjectForHistory(state.project) || history.lastJson || "";
-  const prev = history.undo.pop();
-
-  if(cur) history.redo.push(cur);
-
-  applyProjectJson(prev);
-}
-
-function doRedo(){
-  if(history.redo.length === 0) return;
-
-  const cur = cloneProjectForHistory(state.project) || history.lastJson || "";
-  const next = history.redo.pop();
-
-  if(cur) history.undo.push(cur);
-
-  applyProjectJson(next);
-}
-
-function updateUndoRedoUI(){
-  const u = document.getElementById("undoBtn");
-  const r = document.getElementById("redoBtn");
-  if(u) u.disabled = (history.undo.length === 0);
-  if(r) r.disabled = (history.redo.length === 0);
-}
 
 /***********************
 HORSE RUNNER (BPM-synced)
@@ -3459,7 +3348,6 @@ ta.value = state.project.fullText || "";
     if(tmr) clearTimeout(tmr);
     tmr = setTimeout(() => {
       applyFullTextToProjectSections(state.project.fullText || "");
-      historyCommitIfChanged();
       upsertProject(state.project);
       updateKeyFromAllNotes();
       // don’t renderSheet() here (would move cursor)
@@ -3504,8 +3392,7 @@ addBtn.addEventListener("click", (e) => {
   const insertAt = idx + 1;
   const nl = newLine();
   arr.splice(insertAt, 0, nl);
-  
-historyCommitIfChanged();
+
   upsertProject(state.project);
   renderSheet();
   updateFullIfVisible();
@@ -3544,7 +3431,6 @@ delBtn.addEventListener("click", (e) => {
     arr.splice(idx, 1);
   }
 
-  historyCommitIfChanged();
   upsertProject(state.project);
   renderSheet();
   updateFullIfVisible();
@@ -3597,18 +3483,10 @@ card.appendChild(delBtn);
         inp.value = inp.dataset.raw || "";
       });
 
-inp.addEventListener("input", () => {
-  const rawNow = String(inp.value || "").trim();
-  inp.dataset.raw = rawNow;
-  // keep both in sync
-  line.notes[i] = rawNow;
-  line.beats[i] = rawNow;
-
-  historyCommitIfChanged();
-  upsertProject(state.project);
-  updateKeyFromAllNotes();
-  updateFullIfVisible();
-});
+      inp.addEventListener("input", () => {
+        const rawNow = String(inp.value || "").trim();
+        inp.dataset.raw = rawNow;
+        line.notes[i] = rawNow;
 
         upsertProject(state.project);
         updateKeyFromAllNotes();
@@ -3619,7 +3497,6 @@ inp.addEventListener("input", () => {
         const rawNow = String(inp.value || "").trim();
         inp.dataset.raw = rawNow;
         line.notes[i] = rawNow;
-line.beats[i] = rawNow;
 
         upsertProject(state.project);
         updateKeyFromAllNotes();
@@ -3658,19 +3535,11 @@ line.beats[i] = rawNow;
         lastActiveCardEl = card;
       });
 
-   inp.addEventListener("input", () => {
-  const rawNow = String(inp.value || "").trim();
-  inp.dataset.raw = rawNow;
-
-  // keep BOTH in sync (safe even if you use only one later)
-  line.notes[i] = rawNow;
-  line.beats[i] = rawNow;
-
-  historyCommitIfChanged();
-  upsertProject(state.project);
-  updateKeyFromAllNotes();
-  updateFullIfVisible();
-});
+      inp.addEventListener("input", () => {
+        line.beats[i] = String(inp.value || "").trim();
+        upsertProject(state.project);
+        updateFullIfVisible();
+      });
 
       beatInputs.push(inp);
       beatsRow.appendChild(inp);
@@ -3682,7 +3551,6 @@ line.beats[i] = rawNow;
 // ✅ syll pill text + glow band
 updateSyllPill(syll, line.lyrics || "");
 
-      historyCommitIfChanged();
 upsertProject(state.project);
 updateFullIfVisible();
 
@@ -4648,114 +4516,6 @@ function installSectionSwipe(){
     if(e.key === "ArrowRight") nextSection();
   });
 }
-/***********************
-Header: inject Undo / Redo / Save buttons
-- Replaces the AutoSplit button UI without disabling AutoSplit behavior
-***********************/
-function injectHeaderEditControls(){
-  // Anchor: where AutoSplit used to be
-  const autoBtn = document.getElementById("autoSplitBtn");
-
-  // Pick the exact container row that holds AutoSplit
-  // (fallbacks included so it never silently fails)
-  const parent =
-    (autoBtn && autoBtn.parentElement) ||
-    (document.getElementById("bpmInput") && document.getElementById("bpmInput").parentElement) ||
-    document.querySelector("header") ||
-    document.body;
-
-  // Helper: get existing button or create it
-  const getOrMakeBtn = (id, cls, label, title) => {
-    let b = document.getElementById(id);
-    if(!b){
-      b = document.createElement("button");
-      b.id = id;
-      b.type = "button";
-      parent.appendChild(b);
-    }
-    b.className = cls;
-    b.textContent = label;
-    b.title = title;
-    b.setAttribute("aria-label", title);
-    return b;
-  };
-
-  // Create/reuse buttons
-  const undo = getOrMakeBtn("undoBtn", "miniIconBtn", "↶", "Undo");
-  const redo = getOrMakeBtn("redoBtn", "miniIconBtn", "↷", "Redo");
-  const save = getOrMakeBtn("quickSaveBtn", "miniSaveBtn", "💾", "Save");
-
-  // Make sure they are in the header row, in the right order:
-  // Undo, Redo, Save (where AutoSplit was)
-  // Move = appendChild/insertBefore automatically detaches from old location
-  if(autoBtn && autoBtn.parentElement === parent){
-    parent.insertBefore(undo, autoBtn);
-    parent.insertBefore(redo, autoBtn);
-    parent.insertBefore(save, autoBtn);
-  }else{
-    // fallback: put them at the start of parent
-    parent.insertBefore(save, parent.firstChild);
-    parent.insertBefore(redo, save);
-    parent.insertBefore(undo, redo);
-  }
-
-  // Hide AutoSplit button UI (functionality stays ON via state.autoSplit=true)
-  if(autoBtn) autoBtn.style.display = "none";
-
-  // Wire handlers (idempotent: remove old by overwriting onclick)
-  undo.onclick = (e) => { e.preventDefault(); doUndo(); };
-  redo.onclick = (e) => { e.preventDefault(); doRedo(); };
-  save.onclick = (e) => {
-    e.preventDefault();
-    historyCommitIfChanged();
-    if(state.project) upsertProject(state.project);
-
-    save.classList.add("savedPulse");
-    setTimeout(()=>save.classList.remove("savedPulse"), 260);
-  };
-
-  // CSS (once)
-  if(!document.getElementById("srpEditBtnsCss")){
-    const st = document.createElement("style");
-    st.id = "srpEditBtnsCss";
-    st.textContent = `
-      .miniIconBtn, .miniSaveBtn{
-        width: 34px;
-        height: 34px;
-        border-radius: 999px;
-        border: 1px solid rgba(0,0,0,.16);
-        background: #fff;
-        box-shadow: 0 6px 16px rgba(0,0,0,.10);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 1000;
-        line-height: 1;
-        cursor: pointer;
-        user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        margin-right: 8px;
-      }
-      .miniIconBtn{ font-size: 18px; }
-      .miniSaveBtn{ font-size: 16px; }
-
-      .miniIconBtn:disabled{
-        opacity: .35;
-        cursor: default;
-        box-shadow: none;
-      }
-      .miniIconBtn:active, .miniSaveBtn:active{
-        transform: translateY(1px);
-      }
-      .miniSaveBtn.savedPulse{
-        outline: 2px solid rgba(34,197,94,.55);
-      }
-    `;
-    document.head.appendChild(st);
-  }
-
-  updateUndoRedoUI();
-}
 
 /***********************
 Wiring
@@ -4766,6 +4526,11 @@ function wire(){
     setPanelHidden(hidden);
   });
 
+  el.autoSplitBtn.addEventListener("click", () => {
+    state.autoSplit = !state.autoSplit;
+    el.autoSplitBtn.classList.toggle("active", state.autoSplit);
+    el.autoSplitBtn.textContent = "AutoSplit: " + (state.autoSplit ? "ON" : "OFF");
+  });
 
   if(el.exportBtn){
     el.exportBtn.addEventListener("click", exportFullPreview);
@@ -4973,18 +4738,13 @@ Init
 ***********************/
 function init(){
   state.project = getCurrentProject();
-    historyInitFromProject();
 
     injectBspCardLook(); // ✅ ADD THIS LINE
 
   applyProjectSettingsToUI();
 
-  // AutoSplit is always ON (no UI toggle)
-  state.autoSplit = true;
-  if(el.autoSplitBtn) el.autoSplitBtn.style.display = "none";
-
-  // Inject Undo/Redo/Save into the header where AutoSplit used to be
-  injectHeaderEditControls();
+  el.autoSplitBtn.textContent = "AutoSplit: ON";
+  el.autoSplitBtn.classList.add("active");
 
   setPanelHidden(false);
   setAutoScroll(false);
