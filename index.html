@@ -242,6 +242,41 @@
       height:34px;
       text-align:center;
     }
+    /* ✅ BPM pill with tiny label inside (label + input share one capsule) */
+.tinyCombo{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  height:34px;
+  padding:0 10px;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,.12);
+  background:#fff;
+  flex:0 0 auto;
+}
+
+.tinyCombo .tinyLbl{
+  font-size:10px;
+  font-weight:1100;
+  letter-spacing:.4px;
+  color:#666;
+  line-height:1;
+  user-select:none;
+}
+
+.tinyCombo input{
+  width:56px;            /* ✅ keeps it compact so the row doesn’t squish */
+  height:32px;
+  border:none;
+  outline:none;
+  background:transparent;
+  padding:0;
+  font-size:13px;
+  text-align:center;
+  -webkit-appearance:none;
+  appearance:none;
+}
+
    .tinyField.key input{
   width:64px;              /* ✅ smaller so it fits beside Capo */
   text-align:center;
@@ -710,7 +745,10 @@
           <button id="undoBtn" class="miniIconBtn" type="button" title="Undo (Ctrl/Cmd+Z)">↶</button>
 <button id="redoBtn" class="miniIconBtn" type="button" title="Redo (Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z)">↷</button>
 <button id="saveBtn" class="miniIconBtn" type="button" title="Save">💾</button>
-          <div class="tinyField"><input id="bpmInput" type="number" min="40" max="220" step="1" value="95"/></div>
+          <div class="tinyCombo">
+  <span class="tinyLbl">BPM</span>
+  <input id="bpmInput" type="number" min="40" max="220" step="1" value="95"/>
+</div>
           <div class="tinyField"><input id="capoInput" type="number" min="0" max="12" step="1" value="0"/></div>
           <div class="tinyField key"><input id="keyOutput" type="text" readonly value="—"/></div>
         </div>
