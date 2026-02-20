@@ -258,12 +258,6 @@ Active card + active lyrics
 let lastLyricsTextarea = null;
 let lastActiveCardEl = null;
 
-// ✅ IME (Android keyboard) composition guard
-let isComposing = false;
-document.addEventListener("compositionstart", () => { isComposing = true; }, true);
-document.addEventListener("compositionend",   () => { isComposing = false; }, true);
-
-// ✅ FIX: this focusin handler was accidentally deleted
 document.addEventListener("focusin", (e) => {
   const t = e.target;
 
@@ -279,6 +273,22 @@ document.addEventListener("focusin", (e) => {
     const card = t.closest(".card");
     if(card) lastActiveCardEl = card;
   }
+});
+
+document.addEventListener("pointerdown", (e) => {
+  const card = e.target && e.target.closest ? e.target.closest(".card") : null;
+  if(card) lastActiveCardEl = card;
+
+  if(e.target && e.target.tagName === "TEXTAREA" && e.target.classList.contains("lyrics")){
+    lastLyricsTextarea = e.target;
+    refreshRhymesFromActive();
+  }
+}, { passive:true });
+
+document.addEventListener("selectionchange", () => {
+  if(!lastLyricsTextarea) return;
+  if(document.activeElement !== lastLyricsTextarea) return;
+  refreshRhymesFromActive();
 });
 
 /***********************
@@ -3684,8 +3694,6 @@ delBtn.addEventListener("click", (e) => {
   e.preventDefault();
   e.stopPropagation();
 
-  editProject("deleteCard", () => {
-
   if(arr.length <= 1){
     if(!confirm("Clear this card?")) return;
     arr[0] = newLine();
@@ -3694,10 +3702,9 @@ delBtn.addEventListener("click", (e) => {
     arr.splice(idx, 1);
   }
 
-  // keep Full page in sync
+  editProject("deleteCard", () => {
   syncFullTextFromSections();
 });
-
   renderSheet();
   updateFullIfVisible();
   updateKeyFromAllNotes();
@@ -4558,70 +4565,34 @@ async function fetchDatamuseNearRhymes(word, max = 24){
   }
 }
 
-function getLiveLyricsTextarea(){
-  // If we have one, ensure it's still connected to DOM
-  if(lastLyricsTextarea && lastLyricsTextarea.isConnected) return lastLyricsTextarea;
-
-  // Try active element first
-  const ae = document.activeElement;
-  if(ae && ae.tagName === "TEXTAREA" && ae.classList.contains("lyrics")) return ae;
-
-  // Try active card
-  if(lastActiveCardEl && lastActiveCardEl.isConnected){
-    const t = lastActiveCardEl.querySelector("textarea.lyrics");
-    if(t) return t;
-  }
-
-  // Fallback: nearest visible / first available
-  const first = el.sheetBody?.querySelector("textarea.lyrics");
-  return first || null;
-}
-
 function insertWordIntoLyrics(word){
-  const ta = getLiveLyricsTextarea();
-  if(!ta) return;
+  if(!lastLyricsTextarea){
+    const first = el.sheetBody.querySelector("textarea.lyrics");
+    if(first) lastLyricsTextarea = first;
+  }
+  if(!lastLyricsTextarea) return;
 
-  // Focus first; Android often needs a frame before selectionStart is reliable
-  ta.focus({ preventScroll:true });
+  const ta = lastLyricsTextarea;
+  ta.focus();
 
-  const doInsert = () => {
-    // If the textarea got re-rendered between focus and now, re-resolve
-    const live = getLiveLyricsTextarea();
-    if(!live) return;
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? ta.value.length;
 
-    const w = String(word || "").trim();
-    if(!w) return;
+  const before = ta.value.slice(0, start);
+  const after = ta.value.slice(end);
 
-    const start = (typeof live.selectionStart === "number") ? live.selectionStart : live.value.length;
-    const end   = (typeof live.selectionEnd === "number") ? live.selectionEnd : live.value.length;
+  const needsSpaceBefore = before.length && !/\s$/.test(before);
+  const needsSpaceAfter = after.length && !/^\s/.test(after);
 
-    const before = live.value.slice(0, start);
-    const after  = live.value.slice(end);
+  const insert = (needsSpaceBefore ? " " : "") + word + (needsSpaceAfter ? " " : "");
+  ta.value = before + insert + after;
 
-    const needsSpaceBefore = before.length && !/\s$/.test(before);
-    const needsSpaceAfter  = after.length && !/^\s/.test(after);
+  const newPos = (before + insert).length;
+  ta.selectionStart = ta.selectionEnd = newPos;
 
-    const insert = (needsSpaceBefore ? " " : "") + w + (needsSpaceAfter ? " " : "");
-
-    // Prefer setRangeText (best mobile behavior + preserves undo stack)
-    if(typeof live.setRangeText === "function"){
-      live.setRangeText(insert, start, end, "end");
-    }else{
-      live.value = before + insert + after;
-      const newPos = (before + insert).length;
-      try{ live.selectionStart = live.selectionEnd = newPos; }catch{}
-    }
-
-    // Trigger your normal pipeline
-    live.dispatchEvent(new Event("input", { bubbles:true }));
-
-    // Keep globals consistent
-    lastLyricsTextarea = live;
-    lastActiveCardEl = live.closest(".card") || lastActiveCardEl;
-  };
-
-  requestAnimationFrame(doInsert);
+  ta.dispatchEvent(new Event("input", { bubbles:true }));
 }
+
 async function renderRhymes(seed){
   const word = normalizeWord(seed);
 
@@ -4654,11 +4625,7 @@ async function renderRhymes(seed){
     const b = document.createElement("div");
     b.className = "rWord";
     b.textContent = w;
-    b.addEventListener("pointerdown", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  insertWordIntoLyrics(w);
-}, { passive:false });
+    b.addEventListener("click", () => insertWordIntoLyrics(w));
     el.rhymeWords.appendChild(b);
   });
 }
@@ -5038,12 +5005,7 @@ function wire(){
   el.mRecordBtn.addEventListener("click", toggleRecording);
 
   el.sortSelect.addEventListener("change", renderProjectsDropdown);
-  el.sortSelect.addEventListener("change", renderProjectsDropdown);
-
-  el.projectSelect.addEventListener("change", () => {
-    const id = el.projectSelect.value;
-    loadProjectById(id);
-  });
+  el.projectSelect.addEventListener("change", () => loadProjectById(el.projectSelect.value));
 
   el.newProjectBtn.addEventListener("click", () => {
     const name = prompt("New project name:", "New Song");
