@@ -3491,6 +3491,12 @@ if(String(state.project.fullText || "") === _tpl){
   upsertProject(state.project);
 }
 
+// ✅ Seed headings scaffold if empty
+if(!String(state.project.fullText || "").trim()){
+  const scaffold = buildFullScaffold();
+  state.project.fullText = scaffold;
+  upsertProject(state.project);
+}
 ta.value = state.project.fullText || "";
 
 
