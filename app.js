@@ -762,6 +762,42 @@ function getTransposeSemis(){
   if(state.transposeMode === "step") return roundToHalf(state.steps);
   return Math.round(Number(state.capo) || 0);
 }
+function commitCapoStepFromInput(fromToggle=false){
+  if(!el.capoInput || !state.project) return;
+
+  // normalize decimal comma just in case
+  const rawStr = String(el.capoInput.value ?? "").trim().replace(",", ".");
+  const rawNum = Number(rawStr);
+
+  if(state.transposeMode === "step"){
+    const steps = clamp(roundToHalf(rawNum), -24, 24);
+
+    editProject("steps", () => {
+      state.steps = steps;
+      state.project.steps = steps;
+    });
+
+    // keep UI stable (no “snap to int then back”)
+    el.capoInput.step = "0.5";
+    el.capoInput.inputMode = "decimal";
+    el.capoInput.value = String(steps);
+  }else{
+    const capo = clamp(Math.round(Number.isFinite(rawNum) ? rawNum : 0), 0, 12);
+
+    editProject("capo", () => {
+      state.capo = capo;
+      state.project.capo = capo;
+    });
+
+    el.capoInput.step = "1";
+    el.capoInput.inputMode = "numeric";
+    el.capoInput.value = String(capo);
+  }
+
+  // update displays
+  refreshDisplayedNoteCells();
+  updateKeyFromAllNotes();
+}
 
 // Helper: split into integer semis (for chord-name math) + fractional semis (for detune)
 function splitTranspose(semisFloat){
@@ -3038,52 +3074,73 @@ function setActive(ids, activeId){
 function ensureCapoStepToggle(){
   if(!el.capoInput) return;
 
-  // already added?
-  if(document.getElementById("capoStepToggle")) return;
+  // if wrap already exists, just ensure button exists + repaint
+  let wrap = document.getElementById("capoStepWrap");
+  let btn = document.getElementById("capoStepToggle");
 
-  const btn = document.createElement("button");
-  btn.id = "capoStepToggle";
-  btn.type = "button";
-  btn.className = "miniIconBtn";
+  // Create wrap once: forces input + pill to sit side-by-side
+  if(!wrap){
+    wrap = document.createElement("span");
+    wrap.id = "capoStepWrap";
+    wrap.style.display = "inline-flex";
+    wrap.style.alignItems = "center";
+    wrap.style.gap = "6px";
 
-function paint(){
-  const mode = state.transposeMode || "capo";
-
-  const label = (mode === "step") ? "STEP" : "CAPO";
-
-  btn.textContent = label;
-  btn.setAttribute("aria-label", label);
-
-  if(mode === "capo"){
-    btn.style.background = "#fff";
-    btn.style.color = "#111";
+    // Insert wrap where the input currently is, then move input inside it
+    const parent = el.capoInput.parentNode;
+    parent.insertBefore(wrap, el.capoInput);
+    wrap.appendChild(el.capoInput);
   }else{
-    btn.style.background = "#111";
-    btn.style.color = "#fff";
+    // ensure input is inside wrap (safety)
+    if(el.capoInput.parentNode !== wrap) wrap.appendChild(el.capoInput);
   }
 
-  // keep input in sync
-  if(mode === "capo"){
-    el.capoInput.step = "1";
-    el.capoInput.value = String(Math.round(Number(state.capo)||0));
-  }else{
-    el.capoInput.step = "0.5";
-    el.capoInput.value = String(state.steps ?? 0);
-  }
-}
+  // Create toggle button once
+  if(!btn){
+    btn = document.createElement("button");
+    btn.id = "capoStepToggle";
+    btn.type = "button";
+    btn.className = "miniIconBtn";
+    wrap.appendChild(btn);
 
-  btn.addEventListener("click", () => {
-    editProject("transposeMode", () => {
-      state.transposeMode = (state.transposeMode === "capo") ? "step" : "capo";
-      if(state.project) state.project.transposeMode = state.transposeMode;
+    btn.addEventListener("click", () => {
+      editProject("transposeMode", () => {
+        state.transposeMode = (state.transposeMode === "capo") ? "step" : "capo";
+        if(state.project) state.project.transposeMode = state.transposeMode;
+      });
+
+      paint();
+      commitCapoStepFromInput(true);
+      refreshDisplayedNoteCells();
+      updateKeyFromAllNotes();
     });
+  }else{
+    // ensure btn is in the wrap
+    if(btn.parentNode !== wrap) wrap.appendChild(btn);
+  }
 
-    paint();
-    refreshDisplayedNoteCells();
-    updateKeyFromAllNotes();
-  });
+  function paint(){
+    const mode = state.transposeMode || "capo";
+    const label = (mode === "step") ? "STEP" : "CAPO";
 
-  el.capoInput.insertAdjacentElement("afterend", btn);
+    btn.textContent = label;
+    btn.setAttribute("aria-label", label);
+
+    if(mode === "capo"){
+      btn.style.background = "#fff";
+      btn.style.color = "#111";
+      el.capoInput.step = "1";
+      el.capoInput.inputMode = "numeric";
+      el.capoInput.value = String(Math.round(Number(state.capo)||0));
+    }else{
+      btn.style.background = "#111";
+      btn.style.color = "#fff";
+      el.capoInput.step = "0.5";
+      el.capoInput.inputMode = "decimal";
+      el.capoInput.value = String(state.steps ?? 0);
+    }
+  }
+
   paint();
 }
 
@@ -5032,6 +5089,38 @@ function wire(){
       setTimeout(()=> el.saveBtn && el.saveBtn.classList.remove("savedFlash"), 220);
     }catch{}
   });
+  // ✅ create the CAPO/STEP pill + force inline wrap
+  ensureCapoStepToggle();
+  injectHeaderControlTightStyle();
+  if(el.capoInput){
+    // iOS/Android “Go” / Enter key: prevent weird submit/round behavior
+    el.capoInput.addEventListener("keydown", (e) => {
+      if(e.key === "Enter"){
+        e.preventDefault();
+        e.stopPropagation();
+        el.capoInput.blur(); // triggers commit on blur below
+      }
+    });
+
+    // commit on blur/change (more stable on mobile)
+    el.capoInput.addEventListener("change", () => {
+      editProject("capoOrStep", () => {
+        commitCapoOrStepFromInput();
+      });
+    });
+
+    el.capoInput.addEventListener("blur", () => {
+      editProject("capoOrStep", () => {
+        commitCapoOrStepFromInput();
+      });
+    });
+
+    // optional: live update without snapping
+    el.capoInput.addEventListener("input", () => {
+      // do NOT parseInt here; just let the user type
+      // (you can still update preview/key if you want, but don’t rewrite the value)
+    });
+  }
 
   // Keyboard shortcuts (don’t trigger while typing in inputs/textareas)
   document.addEventListener("keydown", (e) => {
