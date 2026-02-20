@@ -843,7 +843,7 @@
       </div>
 
       <div id="panelBody">
-        <div class="row nowrap">
+        <div class="row nowrap" id="topControlsRow">
 
           <button id="undoBtn" class="miniIconBtn" type="button" title="Undo (Ctrl/Cmd+Z)">↶</button>
 <button id="redoBtn" class="miniIconBtn" type="button" title="Redo (Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z)">↷</button>
@@ -852,16 +852,8 @@
   <span class="tinyLbl">BPM</span>
   <input id="bpmInput" type="number" min="40" max="220" step="1" value="95"/>
 </div>
-        <div class="capoStepWrap">
-  <div id="capoStepToggle" class="capoStepToggle" title="Capo / Step">
-    <button type="button" class="cstOpt active" data-mode="capo" aria-pressed="true">CAPO</button>
-    <button type="button" class="cstOpt" data-mode="step" aria-pressed="false">STEP</button>
-  </div>
-
-  <!-- keep your existing capoInput id because app.js already uses it -->
-  <div class="tinyField">
-    <input id="capoInput" type="number" min="0" max="12" step="1" value="0"/>
-  </div>
+<div class="tinyField">
+  <input id="capoInput" type="number" min="0" max="12" step="1" value="0"/>
 </div>
           <div class="tinyField key"><input id="keyOutput" type="text" readonly value="—"/></div>
         </div>
@@ -941,36 +933,5 @@
 <script src="./lame.min.js?v=62"></script>
   <script src="./app.js?v=62"></script>
   <script>
-/* ✅ Capo/Step Toggle Wiring (runs AFTER app.js) */
-window.addEventListener("load", function(){
-  const wrap = document.getElementById("capoStepToggle");
-  if(!wrap) return;
-
-  const capoBtn = wrap.querySelector('[data-mode="capo"]');
-  const stepBtn = wrap.querySelector('[data-mode="step"]');
-  if(capoBtn) capoBtn.textContent = "CAPO";
-  if(stepBtn) stepBtn.textContent = "STEP";
-
-  wrap.addEventListener("click", (e)=>{
-    const btn = e.target.closest('button[data-mode]');
-    if(!btn) return;
-    const mode = btn.getAttribute("data-mode");
-
-    wrap.querySelectorAll('button[data-mode]').forEach(b=>{
-      const on = b.getAttribute("data-mode") === mode;
-      b.classList.toggle("active", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-    });
-
-    try{ localStorage.setItem("srp_capoStepMode", mode); }catch{}
-  });
-
-  let mode = "capo";
-  try{ mode = localStorage.getItem("srp_capoStepMode") || "capo"; }catch{}
-  const startBtn = wrap.querySelector(`button[data-mode="${mode}"]`);
-  if(startBtn) startBtn.click();
-});
-</script>
-
 </body>
 </html>
