@@ -3536,7 +3536,7 @@ function syncFullTextFromSections(){
     text = ensureFullHeadingsPresent(text);
 
     state.project.fullText = text;
-    upsertProject(state.project);
+// ✅ do NOT save here — caller decides when to save/commit history
 
     // If Full page is currently open, update the textarea too
     if(state.currentSection === "Full"){
