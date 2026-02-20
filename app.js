@@ -3118,34 +3118,47 @@ function ensureCapoStepToggle(){
     if(el.capoInput.parentNode !== wrap) wrap.appendChild(el.capoInput);
   }
 
-  // Create toggle button once
-  if(!btn){
-    btn = document.createElement("button");
-    btn.id = "capoStepToggle";
-    btn.type = "button";
-    btn.className = "miniIconBtn";
-    wrap.appendChild(btn);
+// Create toggle button if missing
+if(!btn){
+  btn = document.createElement("button");
+  btn.id = "capoStepToggle";
+  btn.type = "button";
+  btn.className = "miniIconBtn";
+  wrap.appendChild(btn);
+}
+
+// ✅ ALWAYS wire once, even if btn already existed
+if(!btn.dataset.wired){
+  btn.dataset.wired = "1";
 
   btn.addEventListener("click", () => {
-  editProject("transposeMode", () => {
-    state.transposeMode = (state.transposeMode === "capo") ? "step" : "capo";
-    if(state.project) state.project.transposeMode = state.transposeMode;
+    editProject("transposeMode", () => {
+      state.transposeMode = (state.transposeMode === "capo") ? "step" : "capo";
+      if(state.project) state.project.transposeMode = state.transposeMode;
+    });
+
+    // repaint UI based on new mode (this should update pill label + input step)
+    paint();
+
+    // ✅ persist current input value without snapping STEP to int
+    if(state.transposeMode === "capo"){
+      const v = clamp(Math.round(Number(el.capoInput.value) || 0), 0, 12);
+      state.capo = v;
+      if(state.project) state.project.capo = v;
+      el.capoInput.value = String(v);
+    }else{
+      const raw = parseFloat(el.capoInput.value);
+      const v = clamp(Math.round((Number.isFinite(raw) ? raw : 0) * 2) / 2, -24, 24);
+      state.steps = v;
+      if(state.project) state.project.steps = v;
+      el.capoInput.value = String(v);
+    }
+
+    refreshDisplayedNoteCells();
+    updateKeyFromAllNotes();
+    updateFullIfVisible?.();
   });
-
-  // repaint UI based on new mode
-  paint();
-
-  // ✅ DO NOT call commitCapoStepFromInput(true) here — it was snapping back to CAPO
-  // Instead, persist whichever value is currently in the input for the active mode.
-  if(state.transposeMode === "capo"){
-    const v = Math.round(Number(el.capoInput.value) || 0);
-    state.capo = v;
-    if(state.project) state.project.capo = v;
-  }else{
-    const v = Number(el.capoInput.value) || 0;
-    state.steps = v;
-    if(state.project) state.project.steps = v;
-  }
+}
 
   refreshDisplayedNoteCells();
   updateKeyFromAllNotes();
