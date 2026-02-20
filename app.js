@@ -3020,6 +3020,14 @@ function ensureCapoStepToggle(){
   function paint(){
     const mode = state.transposeMode || "capo";
     btn.textContent = (mode === "capo") ? "CAPO" : "STEP";
+
+if(mode === "capo"){
+  btn.style.background = "#fff";
+  btn.style.color = "#111";
+}else{
+  btn.style.background = "#111";
+  btn.style.color = "#fff";
+}
     btn.title = (mode === "capo")
       ? "Capo mode (integer semitones)"
       : "Step mode (supports 0.5)";
