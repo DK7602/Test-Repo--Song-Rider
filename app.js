@@ -20,7 +20,27 @@ Utils
 const $ = (id) => document.getElementById(id);
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const now = () => Date.now();
+function clampToViewport(el, pad=12){
+  if(!el) return;
 
+  el.style.position = "fixed";
+  el.style.maxWidth  = `calc(100vw - ${pad*2}px)`;
+  el.style.maxHeight = `calc(100vh - ${pad*2}px)`;
+  el.style.overflow  = "auto";
+
+  const r = el.getBoundingClientRect();
+  let left = r.left;
+  let top  = r.top;
+
+  if(r.right > window.innerWidth - pad) left -= (r.right - (window.innerWidth - pad));
+  if(r.left  < pad)                    left += (pad - r.left);
+
+  if(r.bottom > window.innerHeight - pad) top -= (r.bottom - (window.innerHeight - pad));
+  if(r.top    < pad)                      top += (pad - r.top);
+
+  el.style.left = `${left}px`;
+  el.style.top  = `${top}px`;
+}
 function uuid(){
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
