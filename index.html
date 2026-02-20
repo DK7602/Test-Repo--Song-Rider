@@ -172,12 +172,15 @@
       flex-wrap:wrap;
       overflow-x:hidden;
     }
-    .row.nowrap{
-      flex-wrap:nowrap;
-      overflow-x:hidden;
-      gap:6px;
-    }
-
+.row.nowrap{
+  flex-wrap:nowrap;
+  overflow:hidden;
+  gap:6px;
+  min-width:0;                 /* 🔥 allows shrinking */
+}
+    #panelBody .row.nowrap > *{
+  min-width:0;      /* 🔥 THIS is the real fix */
+}
     .pill{
       border:1px solid #111;
       background:#111;
@@ -265,7 +268,7 @@
 }
 
 .tinyCombo input{
-  width:52px;            /* ✅ keeps it compact so the row doesn’t squish */
+  width:44px;            /* ✅ keeps it compact so the row doesn’t squish */
   height:32px;
   border:none;
   outline:none;
@@ -277,11 +280,12 @@
   appearance:none;
 }
 
-   .tinyField.key input{
-  width:64px;              /* ✅ smaller so it fits beside Capo */
-  text-align:center;
+ .tinyField.key input{
+  width:56px;
+  min-width:0;                /* 🔥 critical */
   padding-left:0;
-}
+ }
+    
 @media (min-width: 420px){
   .tinyField.key input{ width:78px; }  /* ✅ a little bigger on wider phones */
 }
