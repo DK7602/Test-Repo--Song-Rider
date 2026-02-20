@@ -755,7 +755,44 @@ function updateUndoRedoUI(){
   if(el.undoBtn) el.undoBtn.disabled = history.past.length === 0;
   if(el.redoBtn) el.redoBtn.disabled = history.future.length === 0;
 }
+/***********************
+✅ HISTORY COMMIT HELPERS (correct “before” snapshots)
+- editProject(reason, fn) snapshots BEFORE fn runs
+- commits snapshot only if project actually changed
+***********************/
+function historyCommitBeforeSnapshot(beforeSnap){
+  if(history.lock) return;
+  if(!beforeSnap) return;
 
+  history.past.push(deepClone(beforeSnap));
+  if(history.past.length > history.max) history.past.shift();
+
+  history.future = [];
+  history.lastSig = projectSignature(state.project);
+  updateUndoRedoUI();
+}
+
+// Use this whenever you want Undo/Redo to work reliably
+function editProject(reason, mutatorFn){
+  if(!state.project) return;
+  if(history.lock){
+    // while applying undo/redo snapshots, do not create history
+    mutatorFn();
+    return;
+  }
+
+  const before = deepClone(state.project);
+  const beforeSig = projectSignature(before);
+
+  mutatorFn();
+
+  const afterSig = projectSignature(state.project);
+  if(afterSig !== beforeSig){
+    historyCommitBeforeSnapshot(before);
+  }
+
+  upsertProject(state.project);
+}
 /***********************
 HORSE RUNNER (BPM-synced)
 - Runs across screen once per BAR (every 8 eighth-notes)
