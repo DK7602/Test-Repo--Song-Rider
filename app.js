@@ -277,21 +277,20 @@ function injectHeaderControlTightStyle(){
   const style = document.createElement("style");
   style.id = "srpHeaderControlTightStyle";
 style.textContent = `
-  /* ===== TOP CONTROLS ROW: no wrap, allow scroll instead of cutting off ===== */
+  /* ===== TOP CONTROLS ROW: FIT — NO HORIZONTAL SCROLL ===== */
   #topControlsRow{
     display:flex !important;
     flex-wrap:nowrap !important;
     align-items:center !important;
-    gap:10px !important;
-    overflow-x:auto !important;
-    -webkit-overflow-scrolling:touch !important;
+    gap:6px !important;
+    overflow:hidden !important;              /* ✅ no scroll */
   }
   #topControlsRow > *{
     flex:0 0 auto !important;
     min-width:0 !important;
   }
 
-  /* ===== BPM: actually compact ===== */
+  /* ===== BPM: compact ===== */
   #bpmInput{
     width:40px !important;
     min-width:40px !important;
@@ -301,26 +300,26 @@ style.textContent = `
     font-weight:900 !important;
   }
 
-  /* ===== CAPO/STEP input: keep compact ===== */
+  /* ===== CAPO/STEP input: slightly tighter ===== */
   #capoInput{
-    width:56px !important;
-    min-width:56px !important;
-    max-width:56px !important;
+    width:52px !important;
+    min-width:52px !important;
+    max-width:52px !important;
     padding:6px 6px !important;
     text-align:center !important;
     font-weight:900 !important;
   }
 
-  /* ===== KEY output: compact so it fits ===== */
+  /* ===== KEY output: slightly tighter ===== */
   #keyOutput{
-    width:56px !important;
-    min-width:56px !important;
-    max-width:72px !important;
+    width:52px !important;
+    min-width:52px !important;
+    max-width:52px !important;
     text-align:center !important;
     font-weight:900 !important;
   }
 
-  /* ===== CAPO/STEP pill button created by app.js ===== */
+  /* ===== CAPO/STEP vertical pill ===== */
   #capoStepToggle{
     display:inline-flex !important;
     flex:0 0 auto !important;
@@ -3127,17 +3126,30 @@ function ensureCapoStepToggle(){
     btn.className = "miniIconBtn";
     wrap.appendChild(btn);
 
-    btn.addEventListener("click", () => {
-      editProject("transposeMode", () => {
-        state.transposeMode = (state.transposeMode === "capo") ? "step" : "capo";
-        if(state.project) state.project.transposeMode = state.transposeMode;
-      });
+  btn.addEventListener("click", () => {
+  editProject("transposeMode", () => {
+    state.transposeMode = (state.transposeMode === "capo") ? "step" : "capo";
+    if(state.project) state.project.transposeMode = state.transposeMode;
+  });
 
-      paint();
-      commitCapoStepFromInput(true);
-      refreshDisplayedNoteCells();
-      updateKeyFromAllNotes();
-    });
+  // repaint UI based on new mode
+  paint();
+
+  // ✅ DO NOT call commitCapoStepFromInput(true) here — it was snapping back to CAPO
+  // Instead, persist whichever value is currently in the input for the active mode.
+  if(state.transposeMode === "capo"){
+    const v = Math.round(Number(el.capoInput.value) || 0);
+    state.capo = v;
+    if(state.project) state.project.capo = v;
+  }else{
+    const v = Number(el.capoInput.value) || 0;
+    state.steps = v;
+    if(state.project) state.project.steps = v;
+  }
+
+  refreshDisplayedNoteCells();
+  updateKeyFromAllNotes();
+});
   }else{
     // ensure btn is in the wrap
     if(btn.parentNode !== wrap) wrap.appendChild(btn);
