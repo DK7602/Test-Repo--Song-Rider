@@ -3456,9 +3456,15 @@ Line 2
 CHORUS 1
 ...`;
 
-  // ✅ Auto-seed the template only ONCE per project when empty
-if(!String(state.project.fullText || "").trim() && !state.project.fullSeeded){
-  state.project.fullText = buildFullTemplate();
+  // ✅ STOP AUTO-POPULATING FULL TEXT
+// (No template gets inserted anymore)
+
+// ✅ OPTIONAL CLEANUP:
+// If a project already has the old template text, wipe it once automatically.
+const _tpl = buildFullTemplate();
+if(String(state.project.fullText || "") === _tpl){
+  state.project.fullText = "";
+  // keep flag true so it never tries to seed again (even if other code remains)
   state.project.fullSeeded = true;
   upsertProject(state.project);
 }
