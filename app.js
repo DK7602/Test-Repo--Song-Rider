@@ -273,26 +273,28 @@ function injectHeaderControlTightStyle(){
     }
 
     /* Vertical pill toggle between CAPO/STEP */
-    #capoStepToggle{
-      width: 26px !important;
-      height: 44px !important;
-      padding: 0 !important;
-      margin-left: 6px !important;
-      border-radius: 999px !important;
+ #capoStepToggle{
+  width: 28px !important;
+  height: 48px !important;
+  padding: 0 !important;
+  margin-left: 6px !important;
 
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(0,0,0,.18) !important;
+  background: #fff !important;
 
-      writing-mode: vertical-rl !important;
-      text-orientation: mixed !important;
-      transform: rotate(180deg); /* makes it read top->bottom nicely */
-      letter-spacing: 0.5px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 
-      font-size: 11px !important;
-      font-weight: 1000 !important;
-      line-height: 1 !important;
-    }
+  writing-mode: vertical-rl !important;
+  transform: rotate(180deg);
+
+  font-size: 11px !important;
+  font-weight: 1000 !important;
+  letter-spacing: 1px !important;
+  line-height: 1 !important;
+}
   `;
   document.head.appendChild(style);
 }
@@ -3039,23 +3041,6 @@ function ensureCapoStepToggle(){
     editProject("transposeMode", () => {
       state.transposeMode = (state.transposeMode === "capo") ? "step" : "capo";
       if(state.project) state.project.transposeMode = state.transposeMode;
-    });
-
-    paint();
-    refreshDisplayedNoteCells();
-    updateKeyFromAllNotes();
-  });
-
-  el.capoInput.insertAdjacentElement("afterend", btn);
-  paint();
-}
-
-  btn.addEventListener("click", () => {
-    editProject("transposeMode", () => {
-      state.transposeMode = (state.transposeMode === "capo") ? "step" : "capo";
-      if(state.project){
-        state.project.transposeMode = state.transposeMode;
-      }
     });
 
     paint();
