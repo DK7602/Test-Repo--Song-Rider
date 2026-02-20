@@ -3430,6 +3430,28 @@ BRIDGE
 CHORUS 3
 `;
 }
+  function buildFullScaffold(){
+  // headings only, spaced for “type under heading”
+  return FULL_EDIT_SECTIONS.map(h => `${h}\n`).join("\n");
+}
+
+// Adds any missing headings back in (does NOT reorder your content)
+function ensureFullHeadingsPresent(fullText){
+  const text = normalizeLineBreaks(fullText || "");
+  const lines = text.split("\n");
+
+  const present = new Set();
+  for(const line of lines){
+    const h = isSectionHeadingLine(line);
+    if(h) present.add(h);
+  }
+
+  const missing = FULL_EDIT_SECTIONS.filter(h => !present.has(h));
+  if(!missing.length) return text;
+
+  const suffix = (text.trim().length ? "\n\n" : "") + missing.map(h => `${h}\n`).join("\n");
+  return text.replace(/\s*$/, "") + suffix;
+}
 function renderSheet(){
   el.sheetTitle.textContent = state.currentSection;
   renderSheetActions();
