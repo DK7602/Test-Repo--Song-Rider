@@ -263,6 +263,43 @@ function injectHeaderControlTightStyle(){
       padding: 6px 6px !important;     /* less side padding */
       text-align: center !important;
       font-weight: 900 !important;
+      /* --- FIX: keep BPM compact (SRP) --- */
+#bpmBox, .bpmBox{
+  flex: 0 0 auto !important;
+  width: 128px !important;
+  max-width: 128px !important;
+}
+#bpmBox input, .bpmBox input{
+  width: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
+}
+/* fallback: any pill that contains the BPM input */
+header input[data-role="bpm"], header input[name="bpm"], header input#bpmInput{
+  width: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
+}
+/* --- FIX: prevent top controls row from wrapping --- */
+#topControlsRow, .topControlsRow, .headerControls, header .headerControls, header .topControls{
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  gap: 10px !important;
+}
+
+/* keep each control from stretching */
+#topControlsRow > *, .topControlsRow > *, .headerControls > *, header .headerControls > *, header .topControls > *{
+  flex: 0 0 auto !important;
+}
+
+/* keep the vertical pill aligned with the number box */
+#capoStepToggle, .capoStepToggle, .modePill{
+  align-self: center !important;
+  margin-top: 0 !important;
+}
     }
 
     #capoInput{
@@ -3017,33 +3054,31 @@ function ensureCapoStepToggle(){
   btn.type = "button";
   btn.className = "miniIconBtn";
 
-  function paint(){
-    const mode = state.transposeMode || "capo";
-    btn.textContent = (mode === "capo") ? "CAPO" : "STEP";
+function paint(){
+  const mode = state.transposeMode || "capo";
 
-if(mode === "capo"){
-  btn.style.background = "#fff";
-  btn.style.color = "#111";
-}else{
-  btn.style.background = "#111";
-  btn.style.color = "#fff";
-}
-    btn.title = (mode === "capo")
-      ? "Capo mode (integer semitones)"
-      : "Step mode (supports 0.5)";
+  const label = (mode === "step") ? "STEP" : "CAPO";
 
-    if(mode === "capo"){
-      el.capoInput.min = "0";
-      el.capoInput.max = "12";
-      el.capoInput.step = "1";
-      el.capoInput.value = String(Math.round(Number(state.capo)||0));
-    }else{
-      el.capoInput.min = "-24";
-      el.capoInput.max = "24";
-      el.capoInput.step = "0.5";                // ✅ half-steps
-      el.capoInput.value = String(roundToHalf(state.steps));
-    }
+  btn.textContent = label;
+  btn.setAttribute("aria-label", label);
+
+  if(mode === "capo"){
+    btn.style.background = "#fff";
+    btn.style.color = "#111";
+  }else{
+    btn.style.background = "#111";
+    btn.style.color = "#fff";
   }
+
+  // keep input in sync
+  if(mode === "capo"){
+    el.capoInput.step = "1";
+    el.capoInput.value = String(Math.round(Number(state.capo)||0));
+  }else{
+    el.capoInput.step = "0.5";
+    el.capoInput.value = String(state.steps ?? 0);
+  }
+}
 
   btn.addEventListener("click", () => {
     editProject("transposeMode", () => {
@@ -5102,8 +5137,11 @@ function wire(){
   }
 
  el.capoInput.addEventListener("input", () => {
+   
   const mode = state.transposeMode || "capo";
-  const v = parseInt(el.capoInput.value, 10) || 0;
+   
+ const raw = parseFloat(el.capoInput.value);
+const v = Number.isFinite(raw) ? raw : 0; 
 
   editProject("transposeAmount", () => {
     if(mode === "capo"){
