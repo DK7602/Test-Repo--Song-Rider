@@ -257,16 +257,14 @@ Active card + active lyrics
 ***********************/
 let lastLyricsTextarea = null;
 let lastActiveCardEl = null;
-  // ✅ IME (Android keyboard) composition guard
+
+// ✅ IME (Android keyboard) composition guard
 let isComposing = false;
+document.addEventListener("compositionstart", () => { isComposing = true; }, true);
+document.addEventListener("compositionend",   () => { isComposing = false; }, true);
 
-document.addEventListener("compositionstart", () => {
-  isComposing = true;
-}, true);
-
-document.addEventListener("compositionend", () => {
-  isComposing = false;
-}, true);
+// ✅ FIX: this focusin handler was accidentally deleted
+document.addEventListener("focusin", (e) => {
   const t = e.target;
 
   if(t && t.tagName === "TEXTAREA" && t.classList.contains("lyrics")){
@@ -281,22 +279,6 @@ document.addEventListener("compositionend", () => {
     const card = t.closest(".card");
     if(card) lastActiveCardEl = card;
   }
-});
-
-document.addEventListener("pointerdown", (e) => {
-  const card = e.target && e.target.closest ? e.target.closest(".card") : null;
-  if(card) lastActiveCardEl = card;
-
-  if(e.target && e.target.tagName === "TEXTAREA" && e.target.classList.contains("lyrics")){
-    lastLyricsTextarea = e.target;
-    refreshRhymesFromActive();
-  }
-}, { passive:true });
-
-document.addEventListener("selectionchange", () => {
-  if(!lastLyricsTextarea) return;
-  if(document.activeElement !== lastLyricsTextarea) return;
-  refreshRhymesFromActive();
 });
 
 /***********************
