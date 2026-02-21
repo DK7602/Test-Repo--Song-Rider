@@ -146,8 +146,8 @@ function injectBspCardLook(){
     /* ===== REEL-IN CARD LOOK (2 cards visible, smaller text) ===== */
 
     .cards{
-      padding-bottom: 18px;
-    }
+  padding-bottom: calc(65vh + env(safe-area-inset-bottom));
+}
 
     .card{
       position: relative !important;      /* needed for + / × positioning */
