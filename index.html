@@ -133,13 +133,22 @@
     }
 
     .panelTop .left span{
-      text-shadow:
-        -1px  0   var(--noteBlue),
-         1px  0   var(--lyricPink),
-         0    1px var(--backbeatGreen),
-         0   -1px var(--backbeatGreen),
-         0    2px rgba(0,0,0,.10);
-    }
+  .panelTop .left span{
+  text-shadow:
+    /* 🔥 thin black outline (true border look) */
+    -1px -1px 0 #000,
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000,
+
+    /* existing SRP color pop */
+    -1px  0   var(--noteBlue),
+     1px  0   var(--lyricPink),
+     0    1px var(--backbeatGreen),
+     0   -1px var(--backbeatGreen),
+
+     0    2px rgba(0,0,0,.10);
+}
 
     .srp-pink{ color: var(--lyricPink); }
     .srp-blue{ color: var(--noteBlue); }
