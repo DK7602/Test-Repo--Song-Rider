@@ -2774,7 +2774,9 @@ function autoAdvanceOnBar(){
       state.playCardIndex = firstIdx;
       const next = cards[state.playCardIndex];
       lastActiveCardEl = next;
-      scrollCardIntoView(next);
+      requestAnimationFrame(() => {
+  scrollCardIntoView(card);
+});
       return;
     }
     // no content in this section at all -> go to next section with content
@@ -2784,9 +2786,9 @@ function autoAdvanceOnBar(){
       state.playCardIndex = nextIdx;
       const next = cards[state.playCardIndex];
       lastActiveCardEl = next;
-      scrollCardIntoView(next);
-      return;
-    }
+      requestAnimationFrame(() => {
+  scrollCardIntoView(card);
+});
     // else: we've reached the end of content in this section -> advance section
   }
 
