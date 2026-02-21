@@ -2828,15 +2828,13 @@ function autoAdvanceOnBar(){
     const firstIdx = firstNonBlankCardIndexInDOM();
     if(firstIdx !== null) state.playCardIndex = firstIdx;
   }
-
   const next = cards[state.playCardIndex];
-  if(next && !cardIsBlank(next)){
-    lastActiveCardEl = next;
+if(next && !cardIsBlank(next)){
+  lastActiveCardEl = next;
+  requestAnimationFrame(() => {
     scrollCardIntoView(next);
-  }
+  });
 }
-
-
 
 /***********************
 DRUMS + CLOCK (decoupled)
