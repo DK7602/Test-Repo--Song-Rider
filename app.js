@@ -3088,8 +3088,22 @@ function stopAllMusic(){
   stopDrums();
   stopInstrument();
 
-  // if MP3-sync is active, stop that too (it can keep tick/horse alive)
+  // stop MP3 sync (horse/tick)
   stopAudioSync();
+
+  // ✅ reset drum pills (remove green)
+  document.querySelectorAll(
+    "#drumRock, #drumHardRock, #drumPop, #drumRap"
+  ).forEach(btn => btn.classList.remove("active"));
+
+  // ✅ reset instrument pills (remove green)
+  document.querySelectorAll(
+    "#instAcoustic, #instElectric, #instPiano"
+  ).forEach(btn => btn.classList.remove("active"));
+
+  // clear running modes in state
+  state.drumMode = null;
+  state.instrumentMode = null;
 }
 /***********************
 UI helpers
