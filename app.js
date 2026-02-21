@@ -2438,7 +2438,6 @@ function getCardAtPlayLine(){
   return getNearestVisibleCard() || cards[0];
 }
 
-
 function scrollCardIntoView(card){
   if(!card) return;
 
@@ -2446,30 +2445,52 @@ function scrollCardIntoView(card){
 
   // If sheetBody is the scroller, scroll inside it (NOT window)
   if(sb){
+    const padTop = 12;
+
+    // If you have any fixed bottom UI (mini bar etc), account for it:
+    const miniH = (el.miniBar && el.miniBar.getBoundingClientRect)
+      ? Math.ceil(el.miniBar.getBoundingClientRect().height || 0)
+      : 0;
+
+    // Give the bottom some breathing room (mini bar + padding + safe-area)
+    const padBottom = miniH + 16;
+
     const sbRect = sb.getBoundingClientRect();
     const r = card.getBoundingClientRect();
 
-    // how far the card is from the top of the scroll viewport
-    const delta = (r.top - sbRect.top);
+    // Visible viewport inside the scroller (in viewport coords)
+    const viewTop = sbRect.top + padTop;
+    const viewBottom = sbRect.bottom - padBottom;
 
-    // target = current scrollTop + delta - padding
-    const pad = 12;
-    const target = Math.max(0, Math.round(sb.scrollTop + delta - pad));
+    let nextScrollTop = sb.scrollTop;
 
-    sb.scrollTop = target;
+    // If card top is above visible area, scroll up
+    if(r.top < viewTop){
+      const deltaUp = (r.top - viewTop);
+      nextScrollTop = Math.max(0, Math.round(sb.scrollTop + deltaUp));
+    }
+
+    // If card bottom is below visible area, scroll down
+    else if(r.bottom > viewBottom){
+      const deltaDown = (r.bottom - viewBottom);
+      nextScrollTop = Math.max(0, Math.round(sb.scrollTop + deltaDown));
+    }
+
+    sb.scrollTop = nextScrollTop;
     return;
   }
 
-  // fallback
+  // fallback (window scroll)
   const yLine = getHeaderBottomY();
   const r = card.getBoundingClientRect();
   const cardTopDoc = r.top + window.scrollY;
   const targetY = Math.max(0, Math.round(cardTopDoc - yLine));
-  try{ window.scrollTo({ top: targetY, behavior:"auto" }); }
-  catch{ window.scrollTo(0, targetY); }
+  try{
+    window.scrollTo({ top: targetY, behavior:"auto" });
+  } catch{
+    window.scrollTo(0, targetY);
+  }
 }
-
-
 
 /***********************
 Tie utilities (across cards)
