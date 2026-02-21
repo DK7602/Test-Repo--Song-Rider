@@ -993,15 +993,17 @@ if(parked) parked.style.visibility = "visible";
 }
 
 function horseShouldRun(){
-  // “as the mp3 / instrument / drums play…”
-  return !!(state.drumsOn || state.instrumentOn || state.audioSyncOn);
+  // Run horse when ANY time-based playback is happening:
+  // drums, instrument, mp3 sync, OR autoscroll-only
+  return !!(state.autoScrollOn || state.drumsOn || state.instrumentOn || state.audioSyncOn);
 }
 
 function triggerHorseRun(){
-  const parked = document.getElementById("horseParked");
-if(parked) parked.style.visibility = "hidden";
-
   if(!horseShouldRun()) return;
+
+  const parked = document.getElementById("horseParked");
+  if(parked) parked.style.visibility = "hidden";
+
   if(!el.horseRight || !el.horseLeft) return;
 
   const bpm = clamp(state.bpm || 95, 40, 220);
